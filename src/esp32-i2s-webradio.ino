@@ -3,12 +3,14 @@
 #include <Arduino.h>
 #include <Preferences.h>
 #include <SPI.h>
-#include <WiFi.h>
 
 #include "Audio.h" // https://github.com/schreibfaul1/ESP32-audioI2S
 #include "IR.h"    // https://github.com/schreibfaul1/ESP32-IR-Remote-Control"
 
 #include <DNSServer.h>
+#include <WiFi.h>
+#include <AsyncTCP.h>
+#include "ESPAsyncWebServer.h"
 #include <ESPAsyncWebServer.h>    // https://github.com/me-no-dev/ESPAsyncWebServer
 #include <ESPAsyncWiFiManager.h>  // https://github.com/alanswx/ESPAsyncWiFiManager
 
