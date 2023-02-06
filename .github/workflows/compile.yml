@@ -33,7 +33,9 @@ jobs:
         git clone https://github.com/schreibfaul1/ESP32-IR-Remote-Control.git lib/ESP32-IR-Remote-Control
 
     - name: Compile code
-      run: pio run --environment esp32
+      run: |
+           platformio project init
+           pio run --environment esp32
 
     - name: Upload artifact
       uses: actions/upload-artifact@v2
