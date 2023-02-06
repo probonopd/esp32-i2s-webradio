@@ -8,6 +8,9 @@
 #include "Audio.h" // https://github.com/schreibfaul1/ESP32-audioI2S
 #include "IR.h"    // https://github.com/schreibfaul1/ESP32-IR-Remote-Control"
 
+#include <WiFiManager.h>
+
+WiFiManager wifiManager;
 
 #define SPI_MOSI      23
 #define SPI_MISO      19
@@ -20,9 +23,6 @@
 Preferences pref;
 Audio audio;
 IR ir(IR_PIN);  // do not change the objectname, it must be "ir"
-
-String ssid =     "*********";
-String password = "*********";
 
 String stations[] ={
         "0n-80s.radionetz.de:8000/0n-70s.mp3",
@@ -107,8 +107,9 @@ void setup() {
         cur_station = pref.getShort("station");
         cur_volume = pref.getShort("volume");
     }
-    WiFi.disconnect();
-    WiFi.begin(ssid.c_str(), password.c_str());
+
+    wifiManager.autoConnect("AutoConnectAP");
+        
     while (WiFi.status() != WL_CONNECTED) {delay(1500); Serial.print(".");}
     log_i("Connected to %s", WiFi.SSID().c_str());
 
