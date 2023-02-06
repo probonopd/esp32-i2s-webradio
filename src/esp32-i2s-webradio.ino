@@ -7,14 +7,9 @@
 #include "Audio.h" // https://github.com/schreibfaul1/ESP32-audioI2S
 #include "IR.h"    // https://github.com/schreibfaul1/ESP32-IR-Remote-Control"
 
-#include <DNSServer.h>
-#include <WiFi.h>
-#include <AsyncTCP.h>
-#include "ESPAsyncWebServer.h"
-#include <ESPAsyncWebServer.h>    // https://github.com/me-no-dev/ESPAsyncWebServer
-#include <ESPAsyncWiFiManager.h>  // https://github.com/alanswx/ESPAsyncWiFiManager
+#include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
 
-AsyncWiFiManager wifiManager(&server, &dns);
+WiFiManager wifiManager;
 
 #define SPI_MOSI      23
 #define SPI_MISO      19
@@ -112,8 +107,8 @@ void setup() {
         cur_volume = pref.getShort("volume");
     }
 
-    wifiManager.autoConnect("AutoConnectAP");
-        
+    wifiManager.autoConnect();
+
     while (WiFi.status() != WL_CONNECTED) {delay(1500); Serial.print(".");}
     log_i("Connected to %s", WiFi.SSID().c_str());
 
