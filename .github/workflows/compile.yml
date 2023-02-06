@@ -1,0 +1,39 @@
+name: Compile and upload ESP32 Arduino Sketch
+
+on:
+  push:
+    branches:
+      - main
+
+env:
+  PLATFORMIO_CI_SRC: src
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Set up Python
+      uses: actions/setup-python@v2
+      with:
+        python-version: 3.8
+
+    - name: Install dependencies
+      run: |
+        python -m pip install --upgrade pip
+        pip install platformio
+        platformio lib install ESP32-audioI2S
+        platformio lib install ESP32-TFT-Library-ILI9486
+        platformio lib install ESP32-IR-Remote-Control
+
+    - name: Compile code
+      run: pio run --environment esp32
+
+    - name: Upload artifact
+      uses: actions/upload-artifact@v2
+      with:
+        name: firmware.bin
+        path: .pio/build/esp32/firmware.bin
