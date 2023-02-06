@@ -108,6 +108,8 @@ void setup() {
         cur_volume = pref.getShort("volume");
     }
 
+    AsyncWiFiManager.setConnectTimeout(60);
+    AsyncWiFiManager.setConnectRetries(10);
     AsyncWiFiManager.autoConnect();
         
     while (WiFi.status() != WL_CONNECTED) {delay(1500); Serial.print(".");}
