@@ -31,13 +31,15 @@ jobs:
            platformio project init
            pio run --environment esp32
            pio run -v -t upload || true # Show all firmware parts and commands
+           mkdir -p firmware
+           cp .pio/build/esp32/firmware.bin firmware/
+           cp ~/work/esp32-i2s-webradio/esp32-i2s-webradio/.pio/build/esp32/bootloader.bin firmware/
+           cp ~/work/esp32-i2s-webradio/esp32-i2s-webradio/.pio/build/esp32/partitions.bin firmware/
+           cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin firmware/
+
 
     - name: Upload artifact
       uses: actions/upload-artifact@v2
       with:
-        name: firmware.bin
-        path: |
-              .pio/build/esp32/firmware.bin
-              ~/work/esp32-i2s-webradio/esp32-i2s-webradio/.pio/build/esp32/bootloader.bin 
-              ~/work/esp32-i2s-webradio/esp32-i2s-webradio/.pio/build/esp32/partitions.bin 
-              ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin 
+        name: firmware
+        path: firmware/
