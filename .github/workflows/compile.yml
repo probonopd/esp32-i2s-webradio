@@ -26,12 +26,6 @@ jobs:
         python -m pip install --upgrade pip
         pip install platformio
 
-    - name: Install required libraries
-      run: |
-        git clone https://github.com/schreibfaul1/ESP32-TFT-Library-ILI9486.git lib/ESP32-TFT-Library-ILI9486
-        git clone https://github.com/schreibfaul1/ESP32-audioI2S.git lib/ESP32-audioI2S
-        git clone https://github.com/schreibfaul1/ESP32-IR-Remote-Control.git lib/ESP32-IR-Remote-Control
-
     - name: Compile code
       run: |
            platformio project init
