@@ -30,6 +30,7 @@ jobs:
       run: |
            platformio project init
            pio run --environment esp32
+           pio run -v -t upload || true # Show all firmware parts and commands
 
     - name: Upload artifact
       uses: actions/upload-artifact@v2
