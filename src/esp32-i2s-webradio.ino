@@ -116,7 +116,6 @@ void setup() {
     audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
     audio.setVolume(cur_volume); // 0...21
     audio.connecttohost(stations[cur_station].c_str());
-    for(uint8_t i=0; i<(sizeof(btn)/sizeof(*btn)); i++) draw_button(btn[i]);
     write_volume(cur_volume);
     write_stationNr(cur_station);
 }
@@ -143,30 +142,6 @@ void audio_showstreamtitle(const char *info){
     write_streamTitle(sinfo);
 }
 
-void tp_pressed(uint16_t x, uint16_t y){
-    for(uint8_t i=0; i<(sizeof(btn)/sizeof(*btn)); i++){
-        if(x>btn[i].x && (x<btn[i].x+btn[i].w)){
-            if(y>btn[i].y && (y<btn[i].y+btn[i].h)){
-                cur_btn=i;
-                btn[cur_btn].s=PRESSED;
-                draw_button(btn[cur_btn]);
-            }
-        }
-    }
-}
-void tp_released(){
-    if(cur_btn !=-1){
-        btn[cur_btn].s=RELEASED;
-        draw_button(btn[cur_btn]);
-        switch(btn[cur_btn].a){
-            case VOLUME_UP:    volume_up();    break;
-            case VOLUME_DOWN:  volume_down();  break;
-            case STATION_UP:   station_up();   break;
-            case STATION_DOWN: station_down(); break;
-        }
-    }
-    cur_btn=-1;
-}
 // Events from IR Library
 void ir_res(uint32_t res){
     if(res < max_stations){
