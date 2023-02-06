@@ -25,9 +25,12 @@ jobs:
       run: |
         python -m pip install --upgrade pip
         pip install platformio
-        platformio lib install ESP32-audioI2S
-        platformio lib install ESP32-TFT-Library-ILI9486
-        platformio lib install ESP32-IR-Remote-Control
+
+    - name: Install required libraries
+      run: |
+        git clone https://github.com/schreibfaul1/ESP32-TFT-Library-ILI9486.git lib/ESP32-TFT-Library-ILI9486
+        git clone https://github.com/schreibfaul1/ESP32-audioI2S.git lib/ESP32-audioI2S
+        git clone https://github.com/schreibfaul1/ESP32-IR-Remote-Control.git lib/ESP32-IR-Remote-Control
 
     - name: Compile code
       run: pio run --environment esp32
