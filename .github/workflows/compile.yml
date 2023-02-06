@@ -36,4 +36,8 @@ jobs:
       uses: actions/upload-artifact@v2
       with:
         name: firmware.bin
-        path: .pio/build/esp32/firmware.bin
+        path: |
+              .pio/build/esp32/firmware.bin
+              ~/work/esp32-i2s-webradio/esp32-i2s-webradio/.pio/build/esp32/bootloader.bin 
+              ~/work/esp32-i2s-webradio/esp32-i2s-webradio/.pio/build/esp32/partitions.bin 
+              ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin 
