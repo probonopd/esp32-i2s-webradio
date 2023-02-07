@@ -11,6 +11,8 @@
 
 #include <ESPmDNS.h>
 
+#include "esp32/rom/rtc.h"
+
 WiFiManager wifiManager;
 
 // HTTP Server
@@ -29,7 +31,7 @@ Preferences pref;
 Audio audio;
 IR ir(IR_PIN);  // do not change the objectname, it must be "ir"
 
-String stations[128];
+String stations[6];
 
 //some global variables
 
@@ -60,14 +62,18 @@ void handleRoot() {
 void write_stationNr(uint8_t nr){
     String snr = String(nr);
     if(snr.length()<2) snr = "0"+snr;
+    Serial.println(snr);
 }
 void write_volume(uint8_t vol){
     String svol = String(vol);
     if(svol.length()<2) svol = "0"+svol;
+    Serial.println(svol);
 }
 void write_stationName(String sName){
     Serial.println(sName);
-    server.send(200, "text/html", sName);
+    // Convert sName to const char* and play it
+    // audio.connecttospeech(sName.c_str(), "de");
+    // This works, but it also stops the radio; we would like to play the station name in the background
 }
 void write_streamTitle(String sTitle){
     Serial.println(sTitle);
@@ -114,8 +120,9 @@ void station_down(){
 //                                           S E T U P                                             *
 //**************************************************************************************************
 void setup() {
-    max_stations= sizeof(stations)/sizeof(stations[0]); log_i("max stations %i", max_stations);
+
     Serial.begin(115200);
+  
     SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
     pref.begin("WebRadio", false);  // instance of preferences for defaults (station, volume ...)
     if(pref.getShort("volume", 1000) == 1000){ // if that: pref was never been initialized
@@ -131,8 +138,8 @@ void setup() {
     WiFiManagerParameter surl_1("server", "stream_url_1", "https://liveradio.swr.de/sw890cl/swr2/", 128);
     WiFiManagerParameter surl_2("server", "stream_url_2", "https://liveradio.swr.de/sw890cl/swr3/", 128);
     WiFiManagerParameter surl_3("server", "stream_url_3", "https://liveradio.swr.de/sw890cl/swr4fn/", 128);
-    WiFiManagerParameter surl_4("server", "stream_url_4", "https://liveradio.swr.de/sw890cl/swraktuell/https://liveradio.swr.de/sw890cl/swraktuell/https://liveradio.swr.de/sw890cl/swraktuell/", 128);
-    WiFiManagerParameter surl_5("server", "stream_url_4", "https://liveradio.swr.de/sw890cl/dasding/", 128);
+    WiFiManagerParameter surl_4("server", "stream_url_4", "https://liveradio.swr.de/sw890cl/swraktuell/", 128);
+    WiFiManagerParameter surl_5("server", "stream_url_5", "https://liveradio.swr.de/sw890cl/dasding/", 128);
 
     wifiManager.addParameter(&surl_0);
     wifiManager.addParameter(&surl_1);
@@ -148,7 +155,10 @@ void setup() {
     stations[2] = surl_2.getValue();
     stations[3] = surl_3.getValue();
     stations[4] = surl_4.getValue();
-    stations[4] = surl_5.getValue();
+    stations[5] = surl_5.getValue();
+
+    max_stations = sizeof(stations)/sizeof(stations[0]);
+    Serial.println("Number of stations: "+String(max_stations));
 
     while (WiFi.status() != WL_CONNECTED) {delay(1500); Serial.print(".");}
     log_i("Connected to %s", WiFi.SSID().c_str());
