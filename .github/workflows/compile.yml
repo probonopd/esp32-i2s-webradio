@@ -1,4 +1,4 @@
-name: Compile and upload ESP32 Arduino Sketch
+name: Build with PlatformIO for ESP32
 
 on:
   push:
