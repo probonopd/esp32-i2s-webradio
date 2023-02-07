@@ -44,3 +44,4 @@ Also see
 
 * https://github.com/sle118/squeezelite-esp32
 * ESP32 Audio Kit with https://github.com/schreibfaul1/es8388 and Radio project ([https://radio-bastler.de/forum/showthread.php?tid=17786](more))
+* https://github.com/Edzelf/ESP32-Radio (but this uses a VS1053 hardware mp3 decoder, we want just i2s DACs and do that in software)
