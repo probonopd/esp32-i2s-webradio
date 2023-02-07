@@ -9,7 +9,13 @@
 
 #include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
 
+#include <ESPmDNS.h>
+
 WiFiManager wifiManager;
+
+// HTTP Server
+#include <WebServer.h>
+WebServer server(80);
 
 #define SPI_MOSI      23
 #define SPI_MISO      19
@@ -23,17 +29,7 @@ Preferences pref;
 Audio audio;
 IR ir(IR_PIN);  // do not change the objectname, it must be "ir"
 
-String stations[] ={
-        "0n-80s.radionetz.de:8000/0n-70s.mp3",
-        "mediaserv30.live-streams.nl:8000/stream",
-        "www.surfmusic.de/m3u/100-5-das-hitradio,4529.m3u",
-        "stream.1a-webradio.de/deutsch/mp3-128/vtuner-1a",
-        "mp3.ffh.de/radioffh/hqlivestream.aac", //  128k aac
-        "www.antenne.de/webradio/antenne.m3u",
-        "listen.rusongs.ru/ru-mp3-128",
-        "edge.audio.3qsdn.com/senderkw-mp3",
-        "macslons-irish-pub-radio.com/media.asx",
-};
+String stations[128];
 
 //some global variables
 
@@ -46,7 +42,20 @@ int8_t  cur_btn      =-1;   //current button (, -1 means idle)
 enum action{VOLUME_UP=0, VOLUME_DOWN=1, STATION_UP=2, STATION_DOWN=3};
 enum staus {RELEASED=0, PRESSED=1};
 
-
+void handleRoot() {
+  Serial.println("/ requested");
+  // Simple html page with buttons to control the radio
+  String MAIN_page = "<!DOCTYPE html><html><head><title>WebRadio</title></head><body><h1>WebRadio</h1>";
+  MAIN_page += "<script>";
+  MAIN_page += "function send(url) { var xhttp = new XMLHttpRequest(); xhttp.open('GET', url, true); xhttp.send(); }";
+  MAIN_page += "</script>";
+  MAIN_page += "<button onclick='send(\"/volume_up\")'>Volume up</button>";
+  MAIN_page += "<button onclick='send(\"/volume_down\")'>Volume down</button>";
+  MAIN_page += "<button onclick='send(\"/station_up\")'>Station up</button>";
+  MAIN_page += "<button onclick='send(\"/station_down\")'>Station down</button>";
+  MAIN_page += "</body></html>";
+  server.send(200, "text/html", MAIN_page);
+}
 
 void write_stationNr(uint8_t nr){
     String snr = String(nr);
@@ -57,8 +66,11 @@ void write_volume(uint8_t vol){
     if(svol.length()<2) svol = "0"+svol;
 }
 void write_stationName(String sName){
+    Serial.println(sName);
+    server.send(200, "text/html", sName);
 }
 void write_streamTitle(String sTitle){
+    Serial.println(sTitle);
 }
 void volume_up(){
     if(cur_volume < max_volume){
@@ -66,6 +78,8 @@ void volume_up(){
         write_volume(cur_volume);
         audio.setVolume(cur_volume);
         pref.putShort("volume", cur_volume);} // store the current volume in nvs
+        Serial.println(cur_volume);
+        server.send(200, "text/html", "Volume: "+String(cur_volume)+"");
 }
 void volume_down(){
     if(cur_volume>0){
@@ -73,6 +87,8 @@ void volume_down(){
         write_volume(cur_volume);
         audio.setVolume(cur_volume);
         pref.putShort("volume", cur_volume);} // store the current volume in nvs
+        Serial.println(cur_volume);
+        server.send(200, "text/html", "Volume: "+String(cur_volume)+"");
 }
 void station_up(){
     if(cur_station < max_stations-1){
@@ -80,6 +96,8 @@ void station_up(){
         write_stationNr(cur_station);
         audio.connecttohost(stations[cur_station].c_str());
         pref.putShort("station", cur_station);} // store the current station in nvs
+        Serial.println(stations[cur_station].c_str());
+        server.send(200, "text/html", "Station: "+String(cur_station)+"");
 }
 void station_down(){
     if(cur_station > 0){
@@ -87,6 +105,8 @@ void station_down(){
         write_stationNr(cur_station);
         audio.connecttohost(stations[cur_station].c_str());
         pref.putShort("station", cur_station);} // store the current station in nvs
+        Serial.println(stations[cur_station].c_str());
+        server.send(200, "text/html", "Station: "+String(cur_station)+"");
 }
 
 
@@ -107,10 +127,54 @@ void setup() {
         cur_volume = pref.getShort("volume");
     }
 
+    WiFiManagerParameter surl_0("server", "stream_url_0", "https://liveradio.swr.de/sw890cl/swr1bw/", 128);
+    WiFiManagerParameter surl_1("server", "stream_url_1", "https://liveradio.swr.de/sw890cl/swr2/", 128);
+    WiFiManagerParameter surl_2("server", "stream_url_2", "https://liveradio.swr.de/sw890cl/swr3/", 128);
+    WiFiManagerParameter surl_3("server", "stream_url_3", "https://liveradio.swr.de/sw890cl/swr4fn/", 128);
+    WiFiManagerParameter surl_4("server", "stream_url_4", "https://liveradio.swr.de/sw890cl/swraktuell/https://liveradio.swr.de/sw890cl/swraktuell/https://liveradio.swr.de/sw890cl/swraktuell/", 128);
+    WiFiManagerParameter surl_5("server", "stream_url_4", "https://liveradio.swr.de/sw890cl/dasding/", 128);
+
+    wifiManager.addParameter(&surl_0);
+    wifiManager.addParameter(&surl_1);
+    wifiManager.addParameter(&surl_2);
+    wifiManager.addParameter(&surl_3);
+    wifiManager.addParameter(&surl_4);
+    wifiManager.addParameter(&surl_5);
+
     wifiManager.autoConnect();
+    
+    stations[0] = surl_0.getValue();
+    stations[1] = surl_1.getValue();
+    stations[2] = surl_2.getValue();
+    stations[3] = surl_3.getValue();
+    stations[4] = surl_4.getValue();
+    stations[4] = surl_5.getValue();
 
     while (WiFi.status() != WL_CONNECTED) {delay(1500); Serial.print(".");}
     log_i("Connected to %s", WiFi.SSID().c_str());
+
+    // Start the mDNS responder for radio.local
+    if (!MDNS.begin("radio")) {
+        Serial.println("Error setting up MDNS responder!");
+        while(1) {
+            delay(1000);
+        }
+    }
+    Serial.println("mDNS responder started");
+
+    // Add service to MDNS-SD
+    MDNS.addService("http", "tcp", 80);
+
+    // Start the HTTP server
+    // with callback functions to handle requests
+    server.on("/", handleRoot);
+    server.on("/volume_up", volume_up);
+    server.on("/volume_down", volume_down);
+    server.on("/station_up", station_up);
+    server.on("/station_down", station_down);
+    server.begin();
+    Serial.printf("HTTP server started, listening on IP %s", WiFi.localIP().toString().c_str());
+    Serial.println();
 
     ir.begin();  // Init InfraredDecoder
     audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
@@ -126,6 +190,10 @@ void loop()
 {
     audio.loop();
     ir.loop();
+
+    // listen for web requests
+    server.handleClient();
+
 }
 //**************************************************************************************************
 //                                           E V E N T S                                           *
