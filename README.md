@@ -27,3 +27,12 @@ sudo -E python3 -m esptool --chip esp32 --baud 921600 --before default_reset --a
 ```
 sudo screen /dev/ttyU0 115200
 ```
+
+## TODO
+
+[ ] Add support for suitable optional display(s)
+[ ] Make stations configurable via web interface rather than hardcoded
+[ ] Make infrared codes configurable via web interface rather than hardcoded
+[ ] Add Ethernet via optional LAN8720 in addition to WLAN
+[ ] Design carrier PCB with sockets for all the needed modules (easier) or design all chips onto PCB (harder) for assembly at Aisler or JLCPCB (any help appreciated)
+[ ] Design 3D printable case
