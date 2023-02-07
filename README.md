@@ -33,6 +33,14 @@ sudo screen /dev/ttyU0 115200
 - [ ] Add support for suitable optional display(s)
 - [ ] Make stations configurable via web interface rather than hardcoded
 - [ ] Make infrared codes configurable via web interface rather than hardcoded
-- [ ] Add Ethernet via optional LAN8720 in addition to WLAN
-- [ ] Design carrier PCB with sockets for all the needed modules (easier) or design all chips onto PCB (harder) for assembly at Aisler or JLCPCB (any help appreciated)
+- [ ] Add Ethernet via optional [LAN8720](https://sautter.com/blog/ethernet-on-esp32-using-lan8720/) in addition to WLAN
+- [ ] Possibly add Bluetooth support
+- [ ] Possibly add crossfade support for seamless station ID insertions
+- [ ] Possibly add equalizer support
+- [ ] Design carrier PCB with sockets for all the needed modules (easier) or design all chips onto PCB (harder) for assembly at Aisler or JLCPCB (any help appreciated; possibly base on https://github.com/philippe44/SqueezeAMP)
 - [ ] Design 3D printable case
+
+Also see
+
+* https://github.com/sle118/squeezelite-esp32
+* ESP32 Audio Kit with https://github.com/schreibfaul1/es8388 and Radio project ([https://radio-bastler.de/forum/showthread.php?tid=17786](more))
