@@ -28,6 +28,48 @@ For subsequent flashes, the following is sufficient:
 sudo -E python3 -m esptool --chip esp32 --baud 921600 --before default_reset --after hard_reset write_flash -z --flash_mode dio --flash_freq 40m --flash_size 4MB  0x10000 ~/Downloads/firmware.bin
 ```
 
+## Configuring
+
+Configuration is done via the web using a simple text format:
+
+```
+title de SWR 1
+station https://liveradio.swr.de/sw890cl/swr1bw/
+
+title de SWR 2
+station https://liveradio.swr.de/sw890cl/swr2/
+
+title de SWR 3
+station https://liveradio.swr.de/sw890cl/swr3/
+
+title de SWR 4
+station https://liveradio.swr.de/sw890cl/swr4fn/
+
+title de SWR Aktuell
+station https://liveradio.swr.de/sw890cl/swraktuell/
+
+title de Deutschlandfunk
+station https://st01.sslstream.dlf.de/dlf/01/low/aac/stream.aac?aggregator=web
+
+# IR Codes
+0x86C620DF VOLUME_UP
+0x86C6A05F VOLUME_DOWN
+0x86C640BF STATION_UP
+0x86C6C03F STATION_DOWN
+0x86C65CA3 SLEEP_TIMER
+0x86C658A7 0
+0x86C68877 1
+0x86C648B7 2
+0x86C6C837 3
+0x86C628D7 4
+0x86C6A857 5
+0x86C66897 6
+0x86C6E817 7
+0x86C618E7 8
+0x86C69867 9
+0xFFFFFFFF REPEAT
+```
+
 ## Serial debugging
 
 ```
