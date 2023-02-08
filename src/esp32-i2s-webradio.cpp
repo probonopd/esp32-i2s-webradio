@@ -466,10 +466,18 @@ void loop()
 
     // See if time to sleep has arrived
     if( use_deep_sleep == true && millis() >= sleep_timer_begin_time) {
+#ifdef ESP32C3
+        // https://github.com/espressif/arduino-esp32/issues/7005
+        // Tell it to wake up from deep sleep when infrared command is received
+        esp_deep_sleep_enable_gpio_wakeup(1ULL << kRecvPin,ESP_GPIO_WAKEUP_GPIO_HIGH);
+        // Now enter deep sleep
+        esp_deep_sleep(0);
+#else
         // Tell it to wake up from deep sleep when infrared command is received
         esp_sleep_enable_ext0_wakeup((gpio_num_t)kRecvPin, 0);
         // Now enter deep sleep
         esp_deep_sleep_start();
+#endif
     }
 
 }
