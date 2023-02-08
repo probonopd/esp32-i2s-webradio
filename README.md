@@ -51,6 +51,9 @@ station https://liveradio.swr.de/sw890cl/swraktuell/
 title de Deutschlandfunk
 station https://st01.sslstream.dlf.de/dlf/01/low/aac/stream.aac?aggregator=web
 
+title en Radio Swiss Classic
+station https://stream.srg-ssr.ch/rsc_de/aacp_48.m3u
+
 # IR Codes
 0x86C620DF VOLUME_UP
 0x86C6A05F VOLUME_DOWN
@@ -68,6 +71,9 @@ station https://st01.sslstream.dlf.de/dlf/01/low/aac/stream.aac?aggregator=web
 0x86C618E7 8
 0x86C69867 9
 0xFFFFFFFF REPEAT
+
+# After how many minutes to sleep
+sleep 1
 ```
 
 ## Serial debugging

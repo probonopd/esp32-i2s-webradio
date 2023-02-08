@@ -15,6 +15,8 @@
 
 #include "esp32/rom/rtc.h"
 
+#include <esp_sleep.h>
+
 WiFiManager wifiManager;
 
 // HTTP Server
@@ -48,9 +50,13 @@ uint8_t cur_volume   = 0;   //will be set from stored preferences
 int8_t  cur_btn      =-1;   //current button (, -1 means idle)
 
 String lines[128];
-int lineCount = 0;
+int line_count = 0;
 
-String lastIrCommand;
+String last_ir_command;
+
+bool use_deep_sleep = false;
+unsigned long sleep_timer_begin_time = 0; // Time at which the sleep should begin in milliseconds from the start of the program; automatically set by deepSleep()
+unsigned int deep_sleep_millis = 1 * 60 * 1000 ; // After this many minutes, the ESP32 will go to deep sleep; can be set by the user via the web interface
 
 enum action{VOLUME_UP=0, VOLUME_DOWN=1, STATION_UP=2, STATION_DOWN=3};
 enum staus {RELEASED=0, PRESSED=1};
@@ -73,7 +79,23 @@ void handleRoot() {
   server.send(200, "text/html", MAIN_page);
 }
 
+void updateSleepTime() {
+  // Call this function whenever the sleep time should start over again
+  Serial.println("Prolonging the sleep time");
+  sleep_timer_begin_time = millis() + (deep_sleep_millis);
+}
+
+void deepSleep(int minutes) {
+  deep_sleep_millis = minutes * 60 * 1000;
+  Serial.println("Entering deep sleep in " + String(minutes) + " minutes");
+  updateSleepTime();
+  use_deep_sleep = true;
+}
+
 void parseConfigurationData() {
+
+    use_deep_sleep = false;
+
     // Retrieve the stored multi-line string from NVS
     String storedData = preferences.getString("data", "");
     Serial.println("storedData:");
@@ -81,16 +103,16 @@ void parseConfigurationData() {
 
     for (int i = 0; i < storedData.length(); i++) {
         if (storedData[i] == '\n') {
-            lineCount++;
+            line_count++;
         } else {
-            lines[lineCount] += storedData[i];
+            lines[line_count] += storedData[i];
         }
     }
-    Serial.print("lineCount: ");
-    Serial.println(lineCount);
+    Serial.print("line_count: ");
+    Serial.println(line_count);
     
     int stationCount = 0;
-    for (int i = 0; i <= lineCount; i++) {
+    for (int i = 0; i <= line_count; i++) {
         if (lines[i].startsWith("station ")) {
             Serial.print("Station: ");
             String station = lines[i].substring(8);
@@ -99,36 +121,42 @@ void parseConfigurationData() {
             stations[stationCount] = station;
             stationCount++;
         }
+        else if (lines[i].startsWith("title ")) {
+            Serial.print("Title: ");
+            String title = lines[i].substring(6);
+            title.trim();
+            Serial.println(title);
+            titles[stationCount] = title;
+        }
+        else if (lines[i].startsWith("sleep ")) {
+            Serial.print("Sleep: ");
+            String minutes = lines[i].substring(6);
+            minutes.trim();
+            Serial.println(minutes);
+            int m = minutes.toInt();
+            if (m > 0) {
+              deepSleep(m);
+              use_deep_sleep = true;
+            }
+        }
     }
     max_stations = stationCount;
     Serial.print("max_stations: ");
     Serial.println(max_stations);
-
-    stationCount = 0;
-    for (int i = 0; i <= lineCount; i++) {
-        if (lines[i].startsWith("title ")) {
-            Serial.print("Title: ");
-            String title = lines[i].substring(8);
-            title.trim();
-            Serial.println(title);
-            titles[stationCount] = title;
-            stationCount++;
-        }
-    }
 }
 
 void handleConfig() {
   Serial.println("/config requested");
   String html = "<html><body>";
 
-     html += "<ul>"; 
+     html += "<ol>"; 
     for (int i = 0; i < max_stations; i++) {
         html += "<li>";
         html += titles[i];
         html += stations[i];
         html += "</li>\n";
     }
-    html += "</ul>";
+    html += "</ol>";
 
   html += "<form action='/update' method='post'>";
   html += "<textarea rows='40' cols='80' name='multiline'>";
@@ -169,9 +197,6 @@ void write_volume(uint8_t vol){
 
 void write_stationName(String sName){
     Serial.println(sName);
-    // Convert sName to const char* and play it
-    // audio.connecttospeech(sName.c_str(), "de");
-    // This works, but it also stops the radio; we would like to play the station name in the background
 }
 
 void write_streamTitle(String sTitle){
@@ -201,7 +226,11 @@ void volume_down(){
 void play_station(){
     preferences.putShort("station", cur_station); // store the current station in nvs
     write_stationNr(cur_station);
-    audio.connecttospeech(titles[cur_station].c_str(), "de");
+    // Get the first 2 characters of the station name
+    String station_name_language = titles[cur_station].substring(0, 2);
+    // Get the station name but without the first 3 characters
+    String station_name = titles[cur_station].substring(3);
+    audio.connecttospeech(station_name.c_str(), station_name_language.c_str());
     // Wait for the speech to finish
     while(audio.isRunning()){
         loop();
@@ -244,13 +273,16 @@ void play_url(){
 }
 
 void handleIrCommand(String command) {
+
+    updateSleepTime();
+
     if (command.compareTo("REPEAT") == 0) {
             // Repeat the last command
             Serial.print("Last command: ");
-            Serial.println(lastIrCommand);
-            if (lastIrCommand.compareTo("VOLUME_UP") == 0 || lastIrCommand.compareTo("VOLUME_DOWN") == 0) {
+            Serial.println(last_ir_command);
+            if (last_ir_command.compareTo("VOLUME_UP") == 0 || last_ir_command.compareTo("VOLUME_DOWN") == 0) {
                 Serial.print("Repeating");
-                handleIrCommand(lastIrCommand);
+                handleIrCommand(last_ir_command);
             }
             }
             else if (command.compareTo("VOLUME_UP") == 0) {
@@ -268,6 +300,9 @@ void handleIrCommand(String command) {
             else if (command.compareTo("STATION_DOWN") == 0) {
                 Serial.println("Station down");
                 station_down();
+            } else if (command.compareTo("SLEEP_TIMER") == 0) {
+                Serial.println("Sleep timer");
+                deepSleep(1);
             } else if (command.compareTo("1") == 0) {
                 if (max_stations >= 1) {
                     cur_station = 0;
@@ -315,7 +350,7 @@ void handleIrCommand(String command) {
                 }
             }
             if (command.compareTo("REPEAT") != 0) {
-                lastIrCommand = command;
+                last_ir_command = command;
             }
 }
 
@@ -325,7 +360,7 @@ void handleIrCode(String irCode) {
     // Retrieve the stored multi-line string from NVS
     String storedData = preferences.getString("data", "");
 
-    for (int i = 0; i <= lineCount; i++) {
+    for (int i = 0; i <= line_count; i++) {
         if (lines[i].startsWith(irCode)) {
             String command = lines[i].substring(irCode.length()+1);
             command.trim(); // Strip any amount of whitespace at the end
@@ -399,6 +434,10 @@ void setup() {
 
     audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
     audio.setVolume(cur_volume); // 0...21
+
+    if (cur_station >= max_stations) {
+        cur_station = 0;
+    }
     audio.connecttohost(stations[cur_station].c_str());
     write_volume(cur_volume);
     write_stationNr(cur_station);
@@ -424,6 +463,15 @@ void loop()
         irrecv.resume(); // Receive the next value
         handleIrCode(hexstring);
     }
+
+    // See if time to sleep has arrived
+    if( use_deep_sleep == true && millis() >= sleep_timer_begin_time) {
+        // Tell it to wake up from deep sleep when infrared command is received
+        esp_sleep_enable_ext0_wakeup((gpio_num_t)kRecvPin, 0);
+        // Now enter deep sleep
+        esp_deep_sleep_start();
+    }
+
 }
 //**************************************************************************************************
 //                                           E V E N T S                                           *
