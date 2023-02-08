@@ -50,7 +50,10 @@ void handleRoot() {
   String MAIN_page = "<!DOCTYPE html><html><head><title>WebRadio</title></head><body><center><h1>WebRadio</h1>";
   MAIN_page += "<script>";
   MAIN_page += "function send(url) { var xhttp = new XMLHttpRequest(); xhttp.open('GET', url, true); xhttp.send(); }";
+  MAIN_page += "function play(url) { var xhttp = new XMLHttpRequest(); xhttp.open('POST', '/play', true); xhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded'); xhttp.send('url=' + encodeURIComponent(url)); }";
   MAIN_page += "</script>";
+  MAIN_page += "<input type='text' id='urlInput'>";
+  MAIN_page += "<button onclick='play(document.getElementById(\"urlInput\").value)'>Play URL</button>";
   MAIN_page += "<button onclick='send(\"/volume_up\")'>Volume up</button>";
   MAIN_page += "<button onclick='send(\"/volume_down\")'>Volume down</button>";
   MAIN_page += "<button onclick='send(\"/station_up\")'>Station up</button>";
@@ -113,6 +116,14 @@ void station_down(){
         pref.putShort("station", cur_station);} // store the current station in nvs
         Serial.println(stations[cur_station].c_str());
         server.send(200, "text/html", "Station: "+String(cur_station)+"");
+}
+void play_url(){
+    if (server.method() == HTTP_POST) {
+        String url = server.arg("url");
+        audio.connecttohost(url.c_str());
+        Serial.println(url);
+        server.send(200, "text/html", "Playing URL: "+url);
+    }
 }
 
 
@@ -181,6 +192,7 @@ void setup() {
     server.on("/volume_down", volume_down);
     server.on("/station_up", station_up);
     server.on("/station_down", station_down);
+    server.on("/play", play_url);
     server.begin();
     Serial.printf("HTTP server started, listening on IP %s", WiFi.localIP().toString().c_str());
     Serial.println();
