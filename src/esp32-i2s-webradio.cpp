@@ -5,7 +5,9 @@
 #include <SPI.h>
 
 #include "Audio.h" // https://github.com/schreibfaul1/ESP32-audioI2S
-#include "IR.h"    // https://github.com/schreibfaul1/ESP32-IR-Remote-Control"
+
+#include <IRremoteESP8266.h> // https://github.com/crankyoldgit/IRremoteESP8266
+#include <IRutils.h>
 
 #include <WiFiManager.h> // https://github.com/tzapu/WiFiManager
 
@@ -25,13 +27,16 @@ WebServer server(80);
 #define I2S_LRC       26
 
 // IR pin
-#define IR_PIN        34
+#define kRecvPin        37
 
-Preferences pref;
+Preferences preferences;
 Audio audio;
-IR ir(IR_PIN);  // do not change the objectname, it must be "ir"
 
-String stations[6];
+IRrecv irrecv(kRecvPin);
+decode_results results;
+
+String stations[128];
+String titles[128];
 
 //some global variables
 
@@ -40,6 +45,11 @@ uint8_t max_stations = 0;   //will be set later
 uint8_t cur_station  = 0;   //current station(nr), will be set later
 uint8_t cur_volume   = 0;   //will be set from stored preferences
 int8_t  cur_btn      =-1;   //current button (, -1 means idle)
+
+String lines[128];
+int lineCount = 0;
+
+String lastIrCommand;
 
 enum action{VOLUME_UP=0, VOLUME_DOWN=1, STATION_UP=2, STATION_DOWN=3};
 enum staus {RELEASED=0, PRESSED=1};
@@ -52,14 +62,96 @@ void handleRoot() {
   MAIN_page += "function send(url) { var xhttp = new XMLHttpRequest(); xhttp.open('GET', url, true); xhttp.send(); }";
   MAIN_page += "function play(url) { var xhttp = new XMLHttpRequest(); xhttp.open('POST', '/play', true); xhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded'); xhttp.send('url=' + encodeURIComponent(url)); }";
   MAIN_page += "</script>";
-  MAIN_page += "<input type='text' id='urlInput'>";
-  MAIN_page += "<button onclick='play(document.getElementById(\"urlInput\").value)'>Play URL</button>";
+  MAIN_page += "<p><input type='text' id='urlInput'>";
+  MAIN_page += "<button onclick='play(document.getElementById(\"urlInput\").value)'>Play URL</button></p>";
   MAIN_page += "<button onclick='send(\"/volume_up\")'>Volume up</button>";
-  MAIN_page += "<button onclick='send(\"/volume_down\")'>Volume down</button>";
+  MAIN_page += "<button onclick='send(\"/volume_down\")'>Volume down</button>&nbsp;&nbsp;&nbsp;";
   MAIN_page += "<button onclick='send(\"/station_up\")'>Station up</button>";
   MAIN_page += "<button onclick='send(\"/station_down\")'>Station down</button>";
   MAIN_page += "</center></body></html>";
   server.send(200, "text/html", MAIN_page);
+}
+
+void parseConfigurationData() {
+    // Retrieve the stored multi-line string from NVS
+    String storedData = preferences.getString("data", "");
+    Serial.println("storedData:");
+    Serial.println(storedData);
+
+    for (int i = 0; i < storedData.length(); i++) {
+        if (storedData[i] == '\n') {
+            lineCount++;
+        } else {
+            lines[lineCount] += storedData[i];
+        }
+    }
+    Serial.print("lineCount: ");
+    Serial.println(lineCount);
+    
+    int stationCount = 0;
+    for (int i = 0; i <= lineCount; i++) {
+        if (lines[i].startsWith("station ")) {
+            Serial.print("Station: ");
+            String station = lines[i].substring(8);
+            station.trim();
+            Serial.println(station);
+            stations[stationCount] = station;
+            stationCount++;
+        }
+    }
+    max_stations = stationCount;
+    Serial.print("max_stations: ");
+    Serial.println(max_stations);
+
+    stationCount = 0;
+    for (int i = 0; i <= lineCount; i++) {
+        if (lines[i].startsWith("title ")) {
+            Serial.print("Title: ");
+            String title = lines[i].substring(8);
+            title.trim();
+            Serial.println(title);
+            titles[stationCount] = title;
+            stationCount++;
+        }
+    }
+}
+
+void handleConfig() {
+  Serial.println("/config requested");
+  String html = "<html><body>";
+
+     html += "<ul>"; 
+    for (int i = 0; i < max_stations; i++) {
+        html += "<li>";
+        html += titles[i];
+        html += stations[i];
+        html += "</li>\n";
+    }
+    html += "</ul>";
+
+  html += "<form action='/update' method='post'>";
+  html += "<textarea rows='40' cols='80' name='multiline'>";
+  html += preferences.getString("data", "");
+  html += "</textarea><br>";
+  html += "<input type='submit' value='Update'>";
+  html += "</form></body></html>";
+  server.send(200, "text/html", html);
+}
+
+void handleUpdate() {
+  Serial.println("/update requested");
+  String data = server.arg("multiline");
+
+  // Store the multi-line string in NVS
+  preferences.putString("data", data);
+
+  parseConfigurationData();
+
+  // Redirect back to the referrer page
+
+    server.sendHeader("Location", String("/config"), true);
+    server.send(302, "text/plain", "");
+
 }
 
 void write_stationNr(uint8_t nr){
@@ -67,65 +159,183 @@ void write_stationNr(uint8_t nr){
     if(snr.length()<2) snr = "0"+snr;
     Serial.println(snr);
 }
+
 void write_volume(uint8_t vol){
     String svol = String(vol);
     if(svol.length()<2) svol = "0"+svol;
     Serial.println(svol);
 }
+
 void write_stationName(String sName){
     Serial.println(sName);
     // Convert sName to const char* and play it
     // audio.connecttospeech(sName.c_str(), "de");
     // This works, but it also stops the radio; we would like to play the station name in the background
 }
+
 void write_streamTitle(String sTitle){
     Serial.println(sTitle);
 }
+
 void volume_up(){
     if(cur_volume < max_volume){
         cur_volume++;
         write_volume(cur_volume);
         audio.setVolume(cur_volume);
-        pref.putShort("volume", cur_volume);} // store the current volume in nvs
+        preferences.putShort("volume", cur_volume);} // store the current volume in nvs
         Serial.println(cur_volume);
         server.send(200, "text/html", "Volume: "+String(cur_volume)+"");
 }
+
 void volume_down(){
     if(cur_volume>0){
         cur_volume-- ;
         write_volume(cur_volume);
         audio.setVolume(cur_volume);
-        pref.putShort("volume", cur_volume);} // store the current volume in nvs
+        preferences.putShort("volume", cur_volume);} // store the current volume in nvs
         Serial.println(cur_volume);
         server.send(200, "text/html", "Volume: "+String(cur_volume)+"");
 }
-void station_up(){
-    if(cur_station < max_stations-1){
-        cur_station++;
-        write_stationNr(cur_station);
-        audio.connecttohost(stations[cur_station].c_str());
-        pref.putShort("station", cur_station);} // store the current station in nvs
-        Serial.println(stations[cur_station].c_str());
-        server.send(200, "text/html", "Station: "+String(cur_station)+"");
+
+void play_station(){
+    preferences.putShort("station", cur_station); // store the current station in nvs
+    write_stationNr(cur_station);
+    audio.connecttospeech(titles[cur_station].c_str(), "de");
+    // Wait for the speech to finish
+    while(audio.isRunning()){
+        loop();
+    }
+    Serial.println("Speech finished");
+
+    audio.connecttohost(stations[cur_station].c_str());
+    Serial.print("Requested to play: ");
+    Serial.println(stations[cur_station].c_str());
+    server.send(200, "text/html", "Station: "+String(cur_station)+"");
 }
+
 void station_down(){
-    if(cur_station > 0){
+    if(cur_station == 0){
+        cur_station = max_stations-1;
+    } else {
         cur_station--;
-        write_stationNr(cur_station);
-        audio.connecttohost(stations[cur_station].c_str());
-        pref.putShort("station", cur_station);} // store the current station in nvs
-        Serial.println(stations[cur_station].c_str());
-        server.send(200, "text/html", "Station: "+String(cur_station)+"");
+    }
+        play_station();
 }
+
+void station_up(){
+    if(cur_station == max_stations-1){
+        cur_station = 0;
+    } else {
+        cur_station++;
+    }
+        play_station();
+}
+
 void play_url(){
     if (server.method() == HTTP_POST) {
         String url = server.arg("url");
+        preferences.putString("url", url);
         audio.connecttohost(url.c_str());
+        Serial.print("Requested to play: ");
         Serial.println(url);
         server.send(200, "text/html", "Playing URL: "+url);
     }
 }
 
+void handleIrCommand(String command) {
+    if (command.compareTo("REPEAT") == 0) {
+            // Repeat the last command
+            Serial.print("Last command: ");
+            Serial.println(lastIrCommand);
+            if (lastIrCommand.compareTo("VOLUME_UP") == 0 || lastIrCommand.compareTo("VOLUME_DOWN") == 0) {
+                Serial.print("Repeating");
+                handleIrCommand(lastIrCommand);
+            }
+            }
+            else if (command.compareTo("VOLUME_UP") == 0) {
+                Serial.println("Volume up");
+                volume_up();
+            }
+            else if (command.compareTo("VOLUME_DOWN") == 0) {
+                Serial.println("Volume down");
+                volume_down();
+            }
+            else if (command.compareTo("STATION_UP") == 0) {
+                Serial.println("Station up");
+                station_up();
+            }
+            else if (command.compareTo("STATION_DOWN") == 0) {
+                Serial.println("Station down");
+                station_down();
+            } else if (command.compareTo("1") == 0) {
+                if (max_stations >= 1) {
+                    cur_station = 0;
+                    play_station();
+                }
+            } else if (command.compareTo("2") == 0) {
+                if (max_stations >= 2) {
+                    cur_station = 1;
+                    play_station();
+                }
+            } else if (command.compareTo("3") == 0) {
+                if (max_stations >= 3) {
+                    cur_station = 2;
+                    play_station();
+                }
+            } else if (command.compareTo("4") == 0) {
+                if (max_stations >= 4) {
+                    cur_station = 3;
+                    play_station();
+                }
+            } else if (command.compareTo("5") == 0) {
+                if (max_stations >= 5) {
+                    cur_station = 4;
+                    play_station();
+                }
+            } else if (command.compareTo("6") == 0) {
+                if (max_stations >= 6) {
+                    cur_station = 5;
+                    play_station();
+                }
+            } else if (command.compareTo("7") == 0) {
+                if (max_stations >= 7) {
+                    cur_station = 6;
+                    play_station();
+                }
+            } else if (command.compareTo("8") == 0) {
+                if (max_stations >= 8) {
+                    cur_station = 7;
+                    play_station();
+                }
+            } else if (command.compareTo("9") == 0) {
+                if (max_stations >= 9) {
+                    cur_station = 8;
+                    play_station();
+                }
+            }
+            if (command.compareTo("REPEAT") != 0) {
+                lastIrCommand = command;
+            }
+}
+
+void handleIrCode(String irCode) {
+    Serial.println("Looking up IR code: "+irCode);
+
+    // Retrieve the stored multi-line string from NVS
+    String storedData = preferences.getString("data", "");
+
+    for (int i = 0; i <= lineCount; i++) {
+        if (lines[i].startsWith(irCode)) {
+            String command = lines[i].substring(irCode.length()+1);
+            command.trim(); // Strip any amount of whitespace at the end
+            Serial.print("Found IR command: ");
+            Serial.println(command);
+
+            handleIrCommand(command);
+        }
+    }
+    
+}
 
 //**************************************************************************************************
 //                                           S E T U P                                             *
@@ -134,42 +344,25 @@ void setup() {
 
     Serial.begin(115200);
   
-    pref.begin("WebRadio", false);  // instance of preferences for defaults (station, volume ...)
-    if(pref.getShort("volume", 1000) == 1000){ // if that: pref was never been initialized
-        pref.putShort("volume", 10);
-        pref.putShort("station", 0);
+    preferences.begin("WebRadio", false);  // instance of preferences for defaults (station, volume ...)
+    if(preferences.getShort("volume", 1000) == 1000){ // if that: preferences was never been initialized
+        preferences.putShort("volume", 10);
+        preferences.putShort("station", 0);
     }
     else{ // get the stored values
-        cur_station = pref.getShort("station");
-        cur_volume = pref.getShort("volume");
+        cur_station = preferences.getShort("station");
+        cur_volume = preferences.getShort("volume");
     }
 
-    WiFiManagerParameter surl_0("server", "stream_url_0", "https://liveradio.swr.de/sw890cl/swr1bw/", 128);
-    WiFiManagerParameter surl_1("server", "stream_url_1", "https://liveradio.swr.de/sw890cl/swr2/", 128);
-    WiFiManagerParameter surl_2("server", "stream_url_2", "https://liveradio.swr.de/sw890cl/swr3/", 128);
-    WiFiManagerParameter surl_3("server", "stream_url_3", "https://liveradio.swr.de/sw890cl/swr4fn/", 128);
-    WiFiManagerParameter surl_4("server", "stream_url_4", "https://liveradio.swr.de/sw890cl/swraktuell/", 128);
-    WiFiManagerParameter surl_5("server", "stream_url_5", "https://liveradio.swr.de/sw890cl/dasding/", 128);
-
-    wifiManager.addParameter(&surl_0);
-    wifiManager.addParameter(&surl_1);
-    wifiManager.addParameter(&surl_2);
-    wifiManager.addParameter(&surl_3);
-    wifiManager.addParameter(&surl_4);
-    wifiManager.addParameter(&surl_5);
 
     wifiManager.autoConnect();
     
-    stations[0] = surl_0.getValue();
-    stations[1] = surl_1.getValue();
-    stations[2] = surl_2.getValue();
-    stations[3] = surl_3.getValue();
-    stations[4] = surl_4.getValue();
-    stations[5] = surl_5.getValue();
-
-    max_stations = sizeof(stations)/sizeof(stations[0]);
+    parseConfigurationData();
     Serial.println("Number of stations: "+String(max_stations));
+    Serial.println("Current station: "+String(cur_station));
+    Serial.println("Current volume: "+String(cur_volume));
 
+    
     while (WiFi.status() != WL_CONNECTED) {delay(1500); Serial.print(".");}
     log_i("Connected to %s", WiFi.SSID().c_str());
 
@@ -193,11 +386,16 @@ void setup() {
     server.on("/station_up", station_up);
     server.on("/station_down", station_down);
     server.on("/play", play_url);
+    server.on("/config", handleConfig);
+    server.on("/update", handleUpdate);
     server.begin();
     Serial.printf("HTTP server started, listening on IP %s", WiFi.localIP().toString().c_str());
     Serial.println();
 
-    ir.begin();  // Init InfraredDecoder
+    irrecv.enableIRIn();  // Start the receiver
+    Serial.print("IR pin ");
+    Serial.println(kRecvPin);
+
     audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
     audio.setVolume(cur_volume); // 0...21
     audio.connecttohost(stations[cur_station].c_str());
@@ -210,11 +408,21 @@ void setup() {
 void loop()
 {
     audio.loop();
-    ir.loop();
 
     // listen for web requests
     server.handleClient();
 
+    // Handle IR input
+    if (irrecv.decode(&results)) {
+        serialPrintUint64(results.value, HEX);
+        char buffer[16];
+        sprintf(buffer, "0x%08X", results.value);
+        // Convert buffer to String
+        String hexstring = String(buffer);
+        Serial.println("IR Code: "+hexstring);
+        irrecv.resume(); // Receive the next value
+        handleIrCode(hexstring);
+    }
 }
 //**************************************************************************************************
 //                                           E V E N T S                                           *
@@ -231,29 +439,114 @@ void audio_showstreamtitle(const char *info){
     write_streamTitle(sinfo);
 }
 
-// Events from IR Library
-void ir_res(uint32_t res){
-    if(res < max_stations){
-        cur_station = res;
-        write_stationNr(cur_station);
-        audio.connecttohost(stations[cur_station].c_str());
-        pref.putShort("station", cur_station);} // store the current station in nvs
-    else{
-        audio.connecttohost(stations[cur_station].c_str());
-    }
+void audio_id3data(const char *info){  //id3 metadata
+    Serial.print("id3data     ");Serial.println(info);
 }
-void ir_number(const char* num){
-
+void audio_eof_stream(const char* info){ // The webstream comes to an end
+    Serial.print("end of stream:      ");Serial.println(info);
 }
-void ir_key(const char* key){
-    switch(key[0]){
-        case 'k':                   break; // OK
-        case 'r':   volume_up();    break; // right
-        case 'l':   volume_down();  break; // left
-        case 'u':   station_up();   break; // up
-        case 'd':   station_down(); break; // down
-        case '#':                   break; // #
-        case '*':                   break; // *
-        default:    break;
-    }
+void audio_bitrate(const char *info){
+    Serial.print("bitrate     ");Serial.println(info);
+}
+void audio_lasthost(const char *info){  //stream URL played
+    Serial.print("lasthost    ");Serial.println(info);
+}
+void audio_codec(const char *info){
+    Serial.print("codec       ");Serial.println(info);
+}
+void audio_commercial(const char *info){  //duration in sec
+    Serial.print("commercial  ");Serial.println(info);
+}
+void audio_icyurl(const char *info){  //homepage
+    Serial.print("icyurl      ");Serial.println(info);
+}
+void audio_lastmodified(const char *info){  //UTC time of last modification of stream
+    Serial.print("lastmodif   ");Serial.println(info);
+}
+void audio_newstation(const char *info){
+    Serial.print("newstation  ");Serial.println(info);
+}
+void audio_eof_speech(const char *info){
+    Serial.print("eof_speech  ");Serial.println(info);
+}
+void audio_file_mp3(const char *info){
+    Serial.print("file_mp3    ");Serial.println(info);
+}
+void audio_file_aac(const char *info){
+    Serial.print("file_aac    ");Serial.println(info);
+}
+void audio_file_aac_adts(const char *info){
+    Serial.print("file_aac_adts");Serial.println(info);
+}
+void audio_file_opus(const char *info){
+    Serial.print("file_opus   ");Serial.println(info);
+}
+void audio_file_vorbis(const char *info){
+    Serial.print("file_vorbis ");Serial.println(info);
+}
+void audio_file_flac(const char *info){
+    Serial.print("file_flac   ");Serial.println(info);
+}
+void audio_file_wav(const char *info){
+    Serial.print("file_wav    ");Serial.println(info);
+}
+void audio_file_wma(const char *info){
+    Serial.print("file_wma    ");Serial.println(info);
+}
+void audio_file_raw(const char *info){
+    Serial.print("file_raw    ");Serial.println(info);
+}
+void audio_file_unknown(const char *info){
+    Serial.print("file_unknown");Serial.println(info);
+}
+void audio_streamtype(const char *info){
+    Serial.print("streamtype  ");Serial.println(info);
+}
+void audio_streamurl(const char *info){
+    Serial.print("streamurl   ");Serial.println(info);
+}
+void audio_stationcount(const char *info){
+    Serial.print("stationcount");Serial.println(info);
+}
+void audio_stationname(const char *info){
+    Serial.print("stationname ");Serial.println(info);
+}
+void audio_stationlist(const char *info){
+    Serial.print("stationlist ");Serial.println(info);
+}
+void audio_stationlistend(const char *info){
+    Serial.print("stationlistend");Serial.println(info);
+}
+void audio_filesize(const char *info){
+    Serial.print("filesize    ");Serial.println(info);
+}
+void audio_filecount(const char *info){
+    Serial.print("filecount   ");Serial.println(info);
+}
+void audio_filelist(const char *info){
+    Serial.print("filelist    ");Serial.println(info);
+}
+void audio_filelistend(const char *info){
+    Serial.print("filelistend ");Serial.println(info);
+}
+void audio_playlisttitle(const char *info){
+    Serial.print("playlisttitle");Serial.println(info);
+}
+void audio_playlisturl(const char *info){
+    Serial.print("playlisturl ");Serial.println(info);
+}
+void audio_playlistshuffled(const char *info){
+    Serial.print("playlistshuffled");Serial.println(info);
+}
+void audio_playlistrepeat(const char *info){
+    Serial.print("playlistrepeat");Serial.println(info);
+}
+void audio_playlistcount(const char *info){
+    Serial.print("playlistcount");Serial.println(info);
+}
+void audio_playlist(const char *info){
+    Serial.print("playlist    ");Serial.println(info);
+}
+void audio_playlistend(const char *info){
+    Serial.print("playlistend ");Serial.println(info);
 }
