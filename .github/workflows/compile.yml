@@ -29,14 +29,17 @@ jobs:
     - name: Compile code
       run: |
            platformio project init
-           pio run --environment esp32
-           pio run -v -t upload || true # Show all firmware parts and commands
-           mkdir -p firmware
-           cp .pio/build/esp32/firmware.bin firmware/
-           cp ~/work/esp32-i2s-webradio/esp32-i2s-webradio/.pio/build/esp32/bootloader.bin firmware/
-           cp ~/work/esp32-i2s-webradio/esp32-i2s-webradio/.pio/build/esp32/partitions.bin firmware/
-           cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin firmware/
-
+           pio run
+           # pio run -v -t upload || true # Show all firmware parts and commands
+           mkdir -p firmware/esp32 firmware/esp32s2
+           cp .pio/build/esp32/firmware.bin firmware/esp32
+           cp ${{ github.workspace }}/.pio/build/esp32/bootloader.bin firmware/esp32
+           cp ${{ github.workspace }}/.pio/build/esp32/partitions.bin firmware/esp32
+           cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin firmware/esp32
+           cp .pio/build/esp32s2/firmware.bin firmware/esp32s2
+           cp ${{ github.workspace }}/.pio/build/esp32s2/bootloader.bin firmware/esp32s2
+           cp ${{ github.workspace }}/.pio/build/esp32s2/partitions.bin firmware/esp32s2
+           cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin firmware/esp32s2
 
     - name: Upload artifact
       uses: actions/upload-artifact@v2
