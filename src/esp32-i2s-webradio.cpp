@@ -19,12 +19,12 @@ WiFiManager wifiManager;
 #include <WebServer.h>
 WebServer server(80);
 
-#define SPI_MOSI      23
-#define SPI_MISO      19
-#define SPI_SCK       18
+// I2S pins for DAC
 #define I2S_DOUT      25
 #define I2S_BCLK      27
 #define I2S_LRC       26
+
+// IR pin
 #define IR_PIN        34
 
 Preferences pref;
@@ -47,7 +47,7 @@ enum staus {RELEASED=0, PRESSED=1};
 void handleRoot() {
   Serial.println("/ requested");
   // Simple html page with buttons to control the radio
-  String MAIN_page = "<!DOCTYPE html><html><head><title>WebRadio</title></head><body><h1>WebRadio</h1>";
+  String MAIN_page = "<!DOCTYPE html><html><head><title>WebRadio</title></head><body><center><h1>WebRadio</h1>";
   MAIN_page += "<script>";
   MAIN_page += "function send(url) { var xhttp = new XMLHttpRequest(); xhttp.open('GET', url, true); xhttp.send(); }";
   MAIN_page += "</script>";
@@ -55,7 +55,7 @@ void handleRoot() {
   MAIN_page += "<button onclick='send(\"/volume_down\")'>Volume down</button>";
   MAIN_page += "<button onclick='send(\"/station_up\")'>Station up</button>";
   MAIN_page += "<button onclick='send(\"/station_down\")'>Station down</button>";
-  MAIN_page += "</body></html>";
+  MAIN_page += "</center></body></html>";
   server.send(200, "text/html", MAIN_page);
 }
 
@@ -123,7 +123,6 @@ void setup() {
 
     Serial.begin(115200);
   
-    SPI.begin(SPI_SCK, SPI_MISO, SPI_MOSI);
     pref.begin("WebRadio", false);  // instance of preferences for defaults (station, volume ...)
     if(pref.getShort("volume", 1000) == 1000){ // if that: pref was never been initialized
         pref.putShort("volume", 10);
