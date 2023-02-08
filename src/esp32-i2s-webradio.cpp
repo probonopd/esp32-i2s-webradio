@@ -41,6 +41,7 @@ String titles[128];
 //some global variables
 
 uint8_t max_volume   = 21;
+uint8_t min_volume   = 2;
 uint8_t max_stations = 0;   //will be set later
 uint8_t cur_station  = 0;   //current station(nr), will be set later
 uint8_t cur_volume   = 0;   //will be set from stored preferences
@@ -188,7 +189,7 @@ void volume_up(){
 }
 
 void volume_down(){
-    if(cur_volume>0){
+    if(cur_volume > min_volume+1){
         cur_volume-- ;
         write_volume(cur_volume);
         audio.setVolume(cur_volume);
@@ -414,7 +415,7 @@ void loop()
 
     // Handle IR input
     if (irrecv.decode(&results)) {
-        serialPrintUint64(results.value, HEX);
+        // serialPrintUint64(results.value, HEX);
         char buffer[16];
         sprintf(buffer, "0x%08X", results.value);
         // Convert buffer to String
