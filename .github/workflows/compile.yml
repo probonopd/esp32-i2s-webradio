@@ -31,7 +31,7 @@ jobs:
            platformio project init
            pio run
            # pio run -v -t upload || true # Show all firmware parts and commands
-           mkdir -p firmware/esp32 firmware/esp32s2 firmware/esp32s3 firmware/esp32c3
+           mkdir -p firmware/esp32 firmware/esp32s2 # firmware/esp32s3 firmware/esp32c3
            cp .pio/build/esp32/firmware.bin firmware/esp32
            cp ${{ github.workspace }}/.pio/build/esp32/bootloader.bin firmware/esp32
            cp ${{ github.workspace }}/.pio/build/esp32/partitions.bin firmware/esp32
@@ -40,14 +40,14 @@ jobs:
            cp ${{ github.workspace }}/.pio/build/esp32s2/bootloader.bin firmware/esp32s2
            cp ${{ github.workspace }}/.pio/build/esp32s2/partitions.bin firmware/esp32s2
            cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin firmware/esp32s2
-           cp .pio/build/esp32s3/firmware.bin firmware/esp32s3
-           cp ${{ github.workspace }}/.pio/build/esp32s3/bootloader.bin firmware/esp32s3
-           cp ${{ github.workspace }}/.pio/build/esp32s3/partitions.bin firmware/esp32s3
-           cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin firmware/esp32s3
-           cp .pio/build/esp32c3/firmware.bin firmware/esp32c3
-           cp ${{ github.workspace }}/.pio/build/esp32c3/bootloader.bin firmware/esp32c3
-           cp ${{ github.workspace }}/.pio/build/esp32c3/partitions.bin firmware/esp32c3
-           cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin firmware/esp32c3
+           #cp .pio/build/esp32s3/firmware.bin firmware/esp32s3
+           #cp ${{ github.workspace }}/.pio/build/esp32s3/bootloader.bin firmware/esp32s3
+           #cp ${{ github.workspace }}/.pio/build/esp32s3/partitions.bin firmware/esp32s3
+           #cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin firmware/esp32s3
+           #cp .pio/build/esp32c3/firmware.bin firmware/esp32c3
+           #cp ${{ github.workspace }}/.pio/build/esp32c3/bootloader.bin firmware/esp32c3
+           #cp ${{ github.workspace }}/.pio/build/esp32c3/partitions.bin firmware/esp32c3
+           #cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin firmware/esp32c3
 
     - name: Upload artifact
       uses: actions/upload-artifact@v2
