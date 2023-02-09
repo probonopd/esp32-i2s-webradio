@@ -85,8 +85,8 @@ sudo screen /dev/ttyU0 115200
 ## TODO
 
 - [ ] Add support for suitable optional display(s)
-- [ ] Make stations configurable via web interface rather than hardcoded
-- [ ] Make infrared codes configurable via web interface rather than hardcoded
+- [x] Make stations configurable via web interface rather than hardcoded
+- [x] Make infrared codes configurable via web interface rather than hardcoded
 - [ ] Add Ethernet via optional [LAN8720](https://sautter.com/blog/ethernet-on-esp32-using-lan8720/) in addition to WLAN
 - [ ] Possibly add Bluetooth support
 - [ ] Possibly add crossfade support for seamless station ID insertions
