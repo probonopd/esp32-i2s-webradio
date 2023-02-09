@@ -90,10 +90,18 @@ station https://stream.srg-ssr.ch/rsc_de/aacp_48.m3u
 sleep 60
 ```
 
-## Serial debugging
+## Debugging
+
+Serial:
 
 ```
 sudo screen /dev/ttyU0 115200
+```
+
+Telnet:
+
+```
+telnet hostname.local
 ```
 
 ## Ideas for future features
