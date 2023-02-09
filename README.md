@@ -7,6 +7,7 @@ A webradio player using based on esp32 and i2s DAC
 - [x] Spoken station IDs
 - [x] Web interface advertised to the network with Zeroconf
 - [x] Stations configurable via web interface
+- [x] Caching resolved final (redirected) URLs at runtime for faster channel switching
 - [x] Infrared control with codes configurable via web interface
 - [x] Smart sleep timer (time count resets with every infrared key press)
 - [x] Deep sleep (WLAN off, will wake up and reconnect with every infrared key press)
@@ -42,6 +43,9 @@ sudo -E python3 -m esptool --chip esp32 --baud 921600 --before default_reset --a
 Configuration is done via the web using a simple text format:
 
 ```
+# Will be advertised to the network under this name
+name MyWebRadio
+
 title de SWR 1
 station https://liveradio.swr.de/sw890cl/swr1bw/
 
@@ -96,7 +100,6 @@ sudo screen /dev/ttyU0 115200
 
 Contributions are welcome.
 
-- [ ] Cache resolved final (redirected) URLs at runtime for faster channel switching (sound library supports this)
 - [ ] Use https://api.radio-browser.info/ to find stations via web interface and/or geolocation
 - [ ] OTA directly from GitHub Releases using https://github.com/Fishwaldo/esp_ghota
 - [ ] Podcast support (remembering which episodes have been played all the way to the end)

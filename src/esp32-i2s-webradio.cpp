@@ -14,7 +14,6 @@
 #include <ESPmDNS.h>
 
 #include "esp32/rom/rtc.h"
-
 #include <esp_sleep.h>
 
 WiFiManager wifiManager;
@@ -29,13 +28,17 @@ WebServer server(80);
 #define I2S_LRC       26
 
 // IR pin
-#define kRecvPin        37
-
-Preferences preferences;
-Audio audio;
+#ifdef ESP32C3
+const uint16_t kRecvPin = 10; // 14 on a ESP32-C3 causes a boot loop
+#else
+const uint16_t kRecvPin = 14;
+#endif
 
 IRrecv irrecv(kRecvPin);
 decode_results results;
+
+Preferences preferences;
+Audio audio;
 
 String stations[128];
 String titles[128];
@@ -54,6 +57,10 @@ int line_count = 0;
 
 String last_ir_command;
 
+String device_name = "WebRadio";
+
+bool playing_a_station = false; // True if we are playing a station, false if we are playing a URL, needed for caching station URLs
+
 bool use_deep_sleep = false;
 unsigned long sleep_timer_begin_time = 0; // Time at which the sleep should begin in milliseconds from the start of the program; automatically set by deepSleep()
 unsigned int deep_sleep_millis = 1 * 60 * 1000 ; // After this many minutes, the ESP32 will go to deep sleep; can be set by the user via the web interface
@@ -61,22 +68,61 @@ unsigned int deep_sleep_millis = 1 * 60 * 1000 ; // After this many minutes, the
 enum action{VOLUME_UP=0, VOLUME_DOWN=1, STATION_UP=2, STATION_DOWN=3};
 enum staus {RELEASED=0, PRESSED=1};
 
+void off() {
+    // Go to deep sleep
+    Serial.println("Going to deep sleep");
+    // Stop advertising the web server
+    MDNS.end();
+#ifdef ESP32C3
+        // https://github.com/espressif/arduino-esp32/issues/7005
+        // Tell it to wake up from deep sleep when infrared command is received
+        esp_deep_sleep_enable_gpio_wakeup(1ULL << kRecvPin,ESP_GPIO_WAKEUP_GPIO_HIGH);
+        // Now enter deep sleep
+        esp_deep_sleep(0);
+#else
+        // Tell it to wake up from deep sleep when infrared command is received
+        esp_sleep_enable_ext0_wakeup((gpio_num_t)kRecvPin, 0);
+        
+        // FIXME: Sometimes it wakes up when no IR button is pressed,
+        // does setting up the kRecvPin as an input with a pullup help?
+        // Maybe it is a hardware issue, such as an unstable power supply,
+        // so this may not be necessary
+        // Set the kRecvPin as an input
+        pinMode((gpio_num_t)kRecvPin, INPUT_PULLUP);
+        // Enable the internal pull-up resistor for the kRecvPin
+        gpio_pullup_en((gpio_num_t)kRecvPin);
+
+        // Now enter deep sleep
+        esp_deep_sleep_start();
+#endif
+}
+
 void handleRoot() {
   Serial.println("/ requested");
   // Simple html page with buttons to control the radio
-  String MAIN_page = "<!DOCTYPE html><html><head><title>WebRadio</title></head><body><center><h1>WebRadio</h1>";
-  MAIN_page += "<script>";
-  MAIN_page += "function send(url) { var xhttp = new XMLHttpRequest(); xhttp.open('GET', url, true); xhttp.send(); }";
-  MAIN_page += "function play(url) { var xhttp = new XMLHttpRequest(); xhttp.open('POST', '/play', true); xhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded'); xhttp.send('url=' + encodeURIComponent(url)); }";
-  MAIN_page += "</script>";
-  MAIN_page += "<p><input type='text' id='urlInput'>";
-  MAIN_page += "<button onclick='play(document.getElementById(\"urlInput\").value)'>Play URL</button></p>";
-  MAIN_page += "<button onclick='send(\"/volume_up\")'>Volume up</button>";
-  MAIN_page += "<button onclick='send(\"/volume_down\")'>Volume down</button>&nbsp;&nbsp;&nbsp;";
-  MAIN_page += "<button onclick='send(\"/station_up\")'>Station up</button>";
-  MAIN_page += "<button onclick='send(\"/station_down\")'>Station down</button>";
-  MAIN_page += "</center></body></html>";
-  server.send(200, "text/html", MAIN_page);
+  String html = "<!DOCTYPE html><html><head><title>" + device_name + "</title></head><body><center><h1>" + device_name + "</h1>\n";
+  html += "<script>\n";
+  html += "function send(url) { var xhttp = new XMLHttpRequest(); xhttp.open('GET', url, true); xhttp.send(); }\n";
+  html += "function play(url) { var xhttp = new XMLHttpRequest(); xhttp.open('POST', '/play', true); xhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded'); xhttp.send('url=' + encodeURIComponent(url)); }\n";
+  html += "function play_station_id(url) { var xhttp = new XMLHttpRequest(); xhttp.open('POST', '/play_station_id', true); xhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded'); xhttp.send('station_id=' + encodeURIComponent(station_id)); }\n";
+  html += "</script>\n";
+  html += "<p><input type='text' id='urlInput' size='50'>\n";
+  html += "<button onclick='play(document.getElementById(\"urlInput\").value)'>Play URL</button></p>\n";
+  html += "<button onclick='send(\"/volume_up\")'>Volume up</button> ";
+  html += "<button onclick='send(\"/volume_down\")'>Volume down</button>&nbsp;&nbsp;&nbsp;\n";
+  html += "<button onclick='send(\"/station_up\")'>Station up</button> ";
+  html += "<button onclick='send(\"/station_down\")'>Station down</button>&nbsp;&nbsp;&nbsp;\n";
+  html += "<button onclick='send(\"/off\")'>Off</button>\n";
+  html += "<p>\n";
+    for (int i = 0; i < max_stations; i++) {
+        html += "<button onclick='play_station(\"" + String(i) + "' \") url=\"" + stations[i] + "\">";
+        html += titles[i].substring(3);
+        html += "</button>\n";
+    }
+  html += "</p>";
+  html += "<p><a href='/config'>Configuration</a></p>";
+  html += "</center></body></html>";
+  server.send(200, "text/html", html);
 }
 
 void updateSleepTime() {
@@ -93,6 +139,16 @@ void deepSleep(int minutes) {
 }
 
 void parseConfigurationData() {
+
+    // Clear the arrays
+    for (int i = 0; i < 128; i++) {
+        stations[i] = "";
+    }
+    for (int i = 0; i < 128; i++) {
+        titles[i] = "";
+    }
+
+    max_stations = 0;
 
     use_deep_sleep = false;
 
@@ -139,6 +195,13 @@ void parseConfigurationData() {
               use_deep_sleep = true;
             }
         }
+        else if (lines[i].startsWith("name ")) {
+                        Serial.print("Name: ");
+            String name = lines[i].substring(5);
+            name.trim();
+            Serial.println(name);
+            device_name = name;
+        }
     }
     max_stations = stationCount;
     Serial.print("max_stations: ");
@@ -148,16 +211,6 @@ void parseConfigurationData() {
 void handleConfig() {
   Serial.println("/config requested");
   String html = "<html><body>";
-
-     html += "<ol>"; 
-    for (int i = 0; i < max_stations; i++) {
-        html += "<li>";
-        html += titles[i];
-        html += stations[i];
-        html += "</li>\n";
-    }
-    html += "</ol>";
-
   html += "<form action='/update' method='post'>";
   html += "<textarea rows='40' cols='80' name='multiline'>";
   html += preferences.getString("data", "");
@@ -178,15 +231,9 @@ void handleUpdate() {
 
   // Redirect back to the referrer page
 
-    server.sendHeader("Location", String("/config"), true);
+    server.sendHeader("Location", String("/"), true);
     server.send(302, "text/plain", "");
 
-}
-
-void write_stationNr(uint8_t nr){
-    String snr = String(nr);
-    if(snr.length()<2) snr = "0"+snr;
-    Serial.println(snr);
 }
 
 void write_volume(uint8_t vol){
@@ -225,22 +272,30 @@ void volume_down(){
 
 void play_station(){
     preferences.putShort("station", cur_station); // store the current station in nvs
-    write_stationNr(cur_station);
+    Serial.println("Playing station id: "+String(cur_station));
     // Get the first 2 characters of the station name
     String station_name_language = titles[cur_station].substring(0, 2);
     // Get the station name but without the first 3 characters
     String station_name = titles[cur_station].substring(3);
+    playing_a_station = false;
     audio.connecttospeech(station_name.c_str(), station_name_language.c_str());
     // Wait for the speech to finish
     while(audio.isRunning()){
         loop();
     }
     Serial.println("Speech finished");
-
+    playing_a_station = true;
     audio.connecttohost(stations[cur_station].c_str());
     Serial.print("Requested to play: ");
     Serial.println(stations[cur_station].c_str());
     server.send(200, "text/html", "Station: "+String(cur_station)+"");
+}
+
+void play_station_id(){
+    String station_id = server.arg("station_id");
+    cur_station = station_id.toInt();
+    server.send(200, "text/html", "Playing station ID: "+station_id);  
+    play_station();
 }
 
 void station_down(){
@@ -265,10 +320,11 @@ void play_url(){
     if (server.method() == HTTP_POST) {
         String url = server.arg("url");
         preferences.putString("url", url);
+        playing_a_station = false;
         audio.connecttohost(url.c_str());
         Serial.print("Requested to play: ");
         Serial.println(url);
-        server.send(200, "text/html", "Playing URL: "+url);
+        server.send(200, "text/html", "Playing URL: "+url);      
     }
 }
 
@@ -288,6 +344,10 @@ void handleIrCommand(String command) {
             else if (command.compareTo("VOLUME_UP") == 0) {
                 Serial.println("Volume up");
                 volume_up();
+            }
+            else if (command.compareTo("OFF") == 0) {
+                Serial.println("Off");
+                off();
             }
             else if (command.compareTo("VOLUME_DOWN") == 0) {
                 Serial.println("Volume down");
@@ -402,8 +462,7 @@ void setup() {
     while (WiFi.status() != WL_CONNECTED) {delay(1500); Serial.print(".");}
     log_i("Connected to %s", WiFi.SSID().c_str());
 
-    // Start the mDNS responder for radio.local
-    if (!MDNS.begin("radio")) {
+    if (!MDNS.begin(device_name.c_str())) {
         Serial.println("Error setting up MDNS responder!");
         while(1) {
             delay(1000);
@@ -417,10 +476,12 @@ void setup() {
     // Start the HTTP server
     // with callback functions to handle requests
     server.on("/", handleRoot);
+    server.on("/off", off);
     server.on("/volume_up", volume_up);
     server.on("/volume_down", volume_down);
     server.on("/station_up", station_up);
     server.on("/station_down", station_down);
+    server.on("/play_station_id", play_station_id);
     server.on("/play", play_url);
     server.on("/config", handleConfig);
     server.on("/update", handleUpdate);
@@ -438,9 +499,10 @@ void setup() {
     if (cur_station >= max_stations) {
         cur_station = 0;
     }
-    audio.connecttohost(stations[cur_station].c_str());
+    
     write_volume(cur_volume);
-    write_stationNr(cur_station);
+    play_station();
+    Serial.println("Playing last played station: "+stations[cur_station]);
 }
 //**************************************************************************************************
 //                                            L O O P                                              *
@@ -466,18 +528,7 @@ void loop()
 
     // See if time to sleep has arrived
     if( use_deep_sleep == true && millis() >= sleep_timer_begin_time) {
-#ifdef ESP32C3
-        // https://github.com/espressif/arduino-esp32/issues/7005
-        // Tell it to wake up from deep sleep when infrared command is received
-        esp_deep_sleep_enable_gpio_wakeup(1ULL << kRecvPin,ESP_GPIO_WAKEUP_GPIO_HIGH);
-        // Now enter deep sleep
-        esp_deep_sleep(0);
-#else
-        // Tell it to wake up from deep sleep when infrared command is received
-        esp_sleep_enable_ext0_wakeup((gpio_num_t)kRecvPin, 0);
-        // Now enter deep sleep
-        esp_deep_sleep_start();
-#endif
+        off();
     }
 
 }
@@ -507,6 +558,14 @@ void audio_bitrate(const char *info){
 }
 void audio_lasthost(const char *info){  //stream URL played
     Serial.print("lasthost    ");Serial.println(info);
+    if(playing_a_station == true) {
+        // Cache the fully resolved URL so that we can play it again faster
+        Serial.println("Caching station URL for station id: " + String(cur_station));
+        Serial.println("Before caching station URL: " +  stations[cur_station]);
+        stations[cur_station] = String(info);
+        // TODO: Cache this to a location that survives a reboot once we have a way to refresh it periodically
+        Serial.println("After caching station URL: " +  stations[cur_station]);
+    }
 }
 void audio_codec(const char *info){
     Serial.print("codec       ");Serial.println(info);
