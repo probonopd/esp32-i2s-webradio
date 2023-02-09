@@ -95,6 +95,7 @@ sudo screen /dev/ttyU0 115200
 
 Contributions are welcome.
 
+- [ ] OTA directly from GitHub Releases using https://github.com/Fishwaldo/esp_ghota
 - [ ] Podcast support (remembering which episodes have been played all the way to the end)
 - [ ] Alarm clock function (switch on at certain times)
 - [ ] Speak certain texts at certain times (optionally repeating until confirmed by the user by pressing a key)
