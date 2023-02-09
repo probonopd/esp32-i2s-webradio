@@ -11,6 +11,8 @@ A webradio player using based on esp32 and i2s DAC
 - [x] Infrared control with codes configurable via web interface
 - [x] Smart sleep timer (time count resets with every infrared key press)
 - [x] Deep sleep (WLAN off, will wake up and reconnect with every infrared key press)
+- [x] OTA via web interface upload (unless partition scheme changes)
+- [x] Simple treble/bass adjustment
 
 ## System Requirements
 
@@ -109,7 +111,7 @@ telnet hostname.local
 Contributions are welcome.
 
 - [ ] Use https://api.radio-browser.info/ to find stations via web interface and/or geolocation
-- [ ] OTA directly from GitHub Releases using https://github.com/Fishwaldo/esp_ghota
+- [ ] Possibly add OTA directly from GitHub Releases using https://github.com/Fishwaldo/esp_ghota
 - [ ] Podcast support (remembering which episodes have been played all the way to the end)
 - [ ] Alarm clock function (switch on at certain times)
 - [ ] Speak certain texts at certain times (optionally repeating until confirmed by the user by pressing a key)
