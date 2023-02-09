@@ -125,7 +125,7 @@ void handleRoot() {
   html += "<script>\n";
   html += "function send(url) { var xhttp = new XMLHttpRequest(); xhttp.open('GET', url, true); xhttp.send(); }\n";
   html += "function play(url) { var xhttp = new XMLHttpRequest(); xhttp.open('POST', '/play', true); xhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded'); xhttp.send('url=' + encodeURIComponent(url)); }\n";
-  html += "function play_station_id(url) { var xhttp = new XMLHttpRequest(); xhttp.open('POST', '/play_station_id', true); xhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded'); xhttp.send('station_id=' + encodeURIComponent(station_id)); }\n";
+  html += "function play_station_id(station_id) { var xhttp = new XMLHttpRequest(); xhttp.open('POST', '/play_station_id', true); xhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded'); xhttp.send('station_id=' + encodeURIComponent(station_id)); }\n";
   html += "</script>\n";
   html += "<p><input type='text' id='urlInput' size='50'>\n";
   html += "<button onclick='play(document.getElementById(\"urlInput\").value)'>Play URL</button></p>\n";
@@ -137,7 +137,7 @@ void handleRoot() {
   html += "<button onclick='send(\"/reboot\")'>Reboot</button>\n";
   html += "<p>\n";
     for (int i = 0; i < max_stations; i++) {
-        html += "<button onclick='play_station(\"" + String(i) + "' \") url=\"" + stations[i] + "\">";
+        html += "<button onclick='play_station_id(\"" + String(i) + "\")' url=\"" + stations[i] + "\">";
         html += titles[i].substring(3);
         html += "</button>\n";
     }
@@ -146,6 +146,7 @@ void handleRoot() {
 #if defined(GIT_IDENT)
     html += "<p>" + String(GIT_IDENT) + "</p>";
 #endif
+
   html += "</center></body></html>";
   server.send(200, "text/html", html);
 }
@@ -502,7 +503,6 @@ void setup() {
         cur_station = preferences.getShort("station");
         cur_volume = preferences.getShort("volume");
     }
-
 
     wifiManager.autoConnect();
     
