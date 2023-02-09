@@ -143,6 +143,9 @@ void handleRoot() {
     }
   html += "</p>";
   html += "<p><a href='/config'>Configuration</a> | <a href='/update'>Update</a></p>";
+#if defined(GIT_IDENT)
+    html += "<p>" + String(GIT_IDENT) + "</p>";
+#endif
   html += "</center></body></html>";
   server.send(200, "text/html", html);
 }
@@ -489,7 +492,7 @@ void loopTelnet() {
 void setup() {
 
     Serial.begin(115200);
-  
+ 
     preferences.begin("WebRadio", false);  // instance of preferences for defaults (station, volume ...)
     if(preferences.getShort("volume", 1000) == 1000){ // if that: preferences was never been initialized
         preferences.putShort("volume", 10);

@@ -28,6 +28,7 @@ jobs:
 
     - name: Compile code
       run: |
+           export GIT_IDENT=$(git rev-parse --short HEAD)
            platformio project init
            pio run
            # pio run -v -t upload || true # Show all firmware parts and commands
