@@ -5,6 +5,7 @@ A webradio player using based on esp32 and i2s DAC
 ## Features
 
 - [x] Spoken station IDs
+- [x] Web interface advertised to the network with Zeroconf
 - [x] Stations configurable via web interface
 - [x] Infrared control with codes configurable via web interface
 - [x] Smart sleep timer (time count resets with every infrared key press)
