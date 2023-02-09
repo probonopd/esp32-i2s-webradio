@@ -16,14 +16,19 @@
 #include "esp32/rom/rtc.h"
 #include <esp_sleep.h>
 
+#include <WebServer.h>
+#include <HTTPUpdateServer.h>
+
 WiFiServer telnetServer(23);
 WiFiClient serverClient;
 
 WiFiManager wifiManager;
 
 // HTTP Server
-#include <WebServer.h>
 WebServer server(80);
+
+// OTA update via web interface upload
+HTTPUpdateServer httpUpdater;
 
 // I2S pins for DAC
 #define I2S_DOUT      25
@@ -136,7 +141,7 @@ void handleRoot() {
         html += "</button>\n";
     }
   html += "</p>";
-  html += "<p><a href='/config'>Configuration</a></p>";
+  html += "<p><a href='/config'>Configuration</a> | <a href='/update'>Update</a></p>";
   html += "</center></body></html>";
   server.send(200, "text/html", html);
 }
@@ -227,7 +232,7 @@ void parseConfigurationData() {
 void handleConfig() {
   println("/config requested");
   String html = "<html><body>";
-  html += "<form action='/update' method='post'>";
+  html += "<form action='/update_config' method='post'>";
   html += "<textarea rows='40' cols='80' name='multiline'>";
   html += preferences.getString("data", "");
   html += "</textarea><br>";
@@ -236,8 +241,8 @@ void handleConfig() {
   server.send(200, "text/html", html);
 }
 
-void handleUpdate() {
-  println("/update requested");
+void updateConfig() {
+  println("/update_config requested");
   String data = server.arg("multiline");
 
   // Store the multi-line string in NVS
@@ -514,7 +519,11 @@ void setup() {
     server.on("/play_station_id", play_station_id);
     server.on("/play", play_url);
     server.on("/config", handleConfig);
-    server.on("/update", handleUpdate);
+    server.on("/update_config", updateConfig);
+
+    httpUpdater.setup(&server);
+    println("HTTPUpdateServer ready! Open /update in your browser");
+
     server.begin();
     printf("HTTP server started, listening on IP %s", WiFi.localIP().toString().c_str());
     println("");
@@ -529,6 +538,11 @@ void setup() {
     if (cur_station >= max_stations) {
         cur_station = 0;
     }
+
+    // Setup the equalizer
+    // values can be between -40 ... +6 (dB)
+    // int8_t gainLowPass, int8_t gainBandPass, int8_t gainHighPass
+    audio.setTone(-3, 0, 6);
     
     write_volume(cur_volume);
     play_station();
