@@ -70,6 +70,9 @@ station https://st01.sslstream.dlf.de/dlf/01/low/aac/stream.aac?aggregator=web
 title en Radio Swiss Classic
 station https://stream.srg-ssr.ch/rsc_de/aacp_48.m3u
 
+title en Synthwave City FM
+station http://188.40.97.185:8179/stream
+
 # IR Codes
 0x86C620DF VOLUME_UP
 0x86C6A05F VOLUME_DOWN
@@ -90,6 +93,12 @@ station https://stream.srg-ssr.ch/rsc_de/aacp_48.m3u
 
 # After how many minutes to sleep
 sleep 60
+
+# Equalizer
+# values can be between -40 ... +6 (dB)
+bass -1
+midtones 2
+treble 6
 ```
 
 ## Debugging

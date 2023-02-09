@@ -134,6 +134,7 @@ void handleRoot() {
   html += "<button onclick='send(\"/station_up\")'>Station up</button> ";
   html += "<button onclick='send(\"/station_down\")'>Station down</button>&nbsp;&nbsp;&nbsp;\n";
   html += "<button onclick='send(\"/off\")'>Off</button>\n";
+  html += "<button onclick='send(\"/reboot\")'>Reboot</button>\n";
   html += "<p>\n";
     for (int i = 0; i < max_stations; i++) {
         html += "<button onclick='play_station(\"" + String(i) + "' \") url=\"" + stations[i] + "\">";
@@ -161,18 +162,6 @@ void deepSleep(int minutes) {
 
 void parseConfigurationData() {
 
-    // Clear the arrays
-    for (int i = 0; i < 128; i++) {
-        stations[i] = "";
-    }
-    for (int i = 0; i < 128; i++) {
-        titles[i] = "";
-    }
-
-    max_stations = 0;
-
-    use_deep_sleep = false;
-
     // Retrieve the stored multi-line string from NVS
     String storedData = preferences.getString("data", "");
     println("storedData:");
@@ -189,6 +178,10 @@ void parseConfigurationData() {
     println(String(line_count));
     
     int stationCount = 0;
+    int b; // bass
+    int m; // midtones
+    int t; // treble
+
     for (int i = 0; i <= line_count; i++) {
         if (lines[i].startsWith("station ")) {
             print("Station: ");
@@ -223,6 +216,36 @@ void parseConfigurationData() {
             println(name);
             device_name = name;
         }
+        else if (lines[i].startsWith("bass ")) {    
+            print("Bass: ");
+            String bass = lines[i].substring(5);
+            bass.trim();
+            println(bass);
+            b = bass.toInt();
+        }
+        else if (lines[i].startsWith("midtones ")) {
+            print("Midtones: ");
+            String midtones = lines[i].substring(9);
+            midtones.trim();
+            println(midtones);
+            m = midtones.toInt();
+        }
+        else if (lines[i].startsWith("treble ")) {
+            print("Treble: ");
+            String treble = lines[i].substring(7);
+            treble.trim();
+            println(treble);
+            t = treble.toInt();
+        }
+
+        // Set equalizer
+        // int8_t gainLowPass, int8_t gainBandPass, int8_t gainHighPass
+        // values can be between -40 ... +6 (dB)
+        if(b >= -40 && b <= 6 && t >= -40 && t <= 6) {
+            println("Setting equalizer: Bass " + String(b) + ", treble " + String(t));
+            audio.setTone(b, m, t);
+        }
+                        
     }
     max_stations = stationCount;
     print("max_stations: ");
@@ -242,19 +265,16 @@ void handleConfig() {
 }
 
 void updateConfig() {
-  println("/update_config requested");
+  println(F("/update_config requested"));
   String data = server.arg("multiline");
 
   // Store the multi-line string in NVS
   preferences.putString("data", data);
 
-  parseConfigurationData();
-
-  // Redirect back to the referrer page
-
-    server.sendHeader("Location", String("/"), true);
-    server.send(302, "text/plain", "");
-
+  static const char successResponse[] PROGMEM = 
+  "<META http-equiv=\"refresh\" content=\"1;URL=/\">Configuration updated! Rebooting...";
+  server.send(200, "text/html", successResponse);
+  esp_restart();
 }
 
 void write_volume(uint8_t vol){
@@ -512,6 +532,7 @@ void setup() {
     // with callback functions to handle requests
     server.on("/", handleRoot);
     server.on("/off", off);
+    server.on("/reboot", esp_restart);
     server.on("/volume_up", volume_up);
     server.on("/volume_down", volume_down);
     server.on("/station_up", station_up);
@@ -538,11 +559,6 @@ void setup() {
     if (cur_station >= max_stations) {
         cur_station = 0;
     }
-
-    // Setup the equalizer
-    // values can be between -40 ... +6 (dB)
-    // int8_t gainLowPass, int8_t gainBandPass, int8_t gainHighPass
-    audio.setTone(-3, 0, 6);
     
     write_volume(cur_volume);
     play_station();
