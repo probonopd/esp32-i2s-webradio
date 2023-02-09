@@ -55,7 +55,8 @@ title de SWR 4
 station https://liveradio.swr.de/sw890cl/swr4fn/
 
 title de SWR Aktuell
-station https://liveradio.swr.de/sw890cl/swraktuell/
+# station https://liveradio.swr.de/sw890cl/swraktuell/
+http://de1.api.radio-browser.info/m3u/url/f1e65b1b-fb00-47a1-8826-eff02dc7fef8
 
 title de Deutschlandfunk
 station https://st01.sslstream.dlf.de/dlf/01/low/aac/stream.aac?aggregator=web
@@ -95,6 +96,8 @@ sudo screen /dev/ttyU0 115200
 
 Contributions are welcome.
 
+- [ ] Cache resolved final (redirected) URLs at runtime for faster channel switching (sound library supports this)
+- [ ] Use https://api.radio-browser.info/ to find stations via web interface and/or geolocation
 - [ ] OTA directly from GitHub Releases using https://github.com/Fishwaldo/esp_ghota
 - [ ] Podcast support (remembering which episodes have been played all the way to the end)
 - [ ] Alarm clock function (switch on at certain times)
