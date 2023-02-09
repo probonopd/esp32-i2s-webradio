@@ -56,7 +56,7 @@ station https://liveradio.swr.de/sw890cl/swr4fn/
 
 title de SWR Aktuell
 # station https://liveradio.swr.de/sw890cl/swraktuell/
-http://de1.api.radio-browser.info/m3u/url/f1e65b1b-fb00-47a1-8826-eff02dc7fef8
+station http://de1.api.radio-browser.info/m3u/url/f1e65b1b-fb00-47a1-8826-eff02dc7fef8
 
 title de Deutschlandfunk
 station https://st01.sslstream.dlf.de/dlf/01/low/aac/stream.aac?aggregator=web
