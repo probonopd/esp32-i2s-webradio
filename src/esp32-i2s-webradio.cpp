@@ -90,10 +90,20 @@ inline void print(const String line) {
 
 
 void off() {
-    // Go to deep sleep
-    println("Going to deep sleep");
+    
+    // Go to sleep
+    println("Going to sleep");
+
     // Stop advertising the web server
     MDNS.end();
+
+    // Switch off the WLAN
+    esp_wifi_stop();
+
+    // Clear the audio buffer so that after waking up, the audio
+    // doesn't start playing the remaining audio from the buffer
+    audio.stopSong();
+
 #ifdef ESP32C3
         // https://github.com/espressif/arduino-esp32/issues/7005
         // Tell it to wake up from deep sleep when infrared command is received
@@ -101,19 +111,15 @@ void off() {
         // Now enter deep sleep
         esp_deep_sleep(0);
 #else
-        // Tell it to wake up from deep sleep when infrared command is received
+        // Tell it to wake up from sleep when infrared command is received
         esp_sleep_enable_ext0_wakeup((gpio_num_t)kRecvPin, 0);
         
-        // FIXME: Sometimes it wakes up when no IR button is pressed,
-        // does setting up the kRecvPin as an input with a pullup help?
-        // Maybe it is a hardware issue, such as an unstable power supply,
-        // so this may not be necessary
         // Set the kRecvPin as an input
         pinMode((gpio_num_t)kRecvPin, INPUT_PULLUP);
         // Enable the internal pull-up resistor for the kRecvPin
         gpio_pullup_en((gpio_num_t)kRecvPin);
 
-        // Now enter deep sleep
+        // Now enter sleep
         esp_deep_sleep_start();
 #endif
 }
@@ -457,6 +463,18 @@ void handleIrCommand(String command) {
             if (command.compareTo("REPEAT") != 0) {
                 last_ir_command = command;
             }
+            if (command.compareTo("PLAY") == 0) {
+                if (audio.isRunning() == false) {
+                    audio.pauseResume();
+                }
+            }
+            if (command.compareTo("PAUSE") == 0) {
+                audio.pauseResume();
+            }
+            if (command.compareTo("STOP") == 0) {
+                audio.stopSong();
+            }
+
 }
 
 void handleIrCode(String irCode) {
@@ -492,6 +510,39 @@ void loopTelnet() {
 //**************************************************************************************************
 void setup() {
 
+    irrecv.enableIRIn();  // Start the receiver
+
+    if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT0) {
+
+        // We got woken up by the IR pin, so check if there is an IR code available
+        // and go back to sleep if there is none
+        int wakeup_reason_was_ir = 0;
+
+        // TODO: Find a way to very quickly decode the IR code when waking up from deep sleep (e.g., using the ULC processor?)
+
+        // In the meantime, we just wait for 100ms and check if we receive an IR code after that time.
+        // This way, we can hopefully avoid waking up for random noise on the IR pin.
+
+        // Delay for 100ms in the hope that random noise will not trigger a false wakeup this way
+        delay(100);
+        
+        // After having waited for 100ms, try to receive a code for the following for 500ms
+        unsigned long start = millis();
+        while (millis() - start < 500) {
+            // Check if IR code is available
+            if (irrecv.decode(&results)) {
+                // IR code is available, so assume we really want to wake up
+                wakeup_reason_was_ir = 1;
+            }
+            //irrecv.resume(); // Receive the next value
+        }
+
+        if (wakeup_reason_was_ir == 0) {
+            // No IR code was received, so go back to sleep
+            off();
+        }
+    }
+ 
     Serial.begin(115200);
  
     preferences.begin("WebRadio", false);  // instance of preferences for defaults (station, volume ...)
@@ -552,7 +603,6 @@ void setup() {
     printf("HTTP server started, listening on IP %s", WiFi.localIP().toString().c_str());
     println("");
 
-    irrecv.enableIRIn();  // Start the receiver
     print("IR pin ");
     println(String(kRecvPin));
 
