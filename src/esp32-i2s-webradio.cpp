@@ -88,42 +88,6 @@ inline void print(const String line) {
     Serial.print(line);
 }
 
-
-void off() {
-    
-    // Go to sleep
-    println("Going to sleep");
-
-    // Stop advertising the web server
-    MDNS.end();
-
-    // Switch off the WLAN
-    esp_wifi_stop();
-
-    // Clear the audio buffer so that after waking up, the audio
-    // doesn't start playing the remaining audio from the buffer
-    audio.stopSong();
-
-#ifdef ESP32C3
-        // https://github.com/espressif/arduino-esp32/issues/7005
-        // Tell it to wake up from deep sleep when infrared command is received
-        esp_deep_sleep_enable_gpio_wakeup(1ULL << kRecvPin,ESP_GPIO_WAKEUP_GPIO_HIGH);
-        // Now enter deep sleep
-        esp_deep_sleep(0);
-#else
-        // Tell it to wake up from sleep when infrared command is received
-        esp_sleep_enable_ext0_wakeup((gpio_num_t)kRecvPin, 0);
-        
-        // Set the kRecvPin as an input
-        pinMode((gpio_num_t)kRecvPin, INPUT_PULLUP);
-        // Enable the internal pull-up resistor for the kRecvPin
-        gpio_pullup_en((gpio_num_t)kRecvPin);
-
-        // Now enter sleep
-        esp_deep_sleep_start();
-#endif
-}
-
 void handleRoot() {
   println("/ requested");
   // Simple html page with buttons to control the radio
@@ -379,6 +343,96 @@ void play_url(){
     }
 }
 
+String lookupIrCode(String irCode) {
+    println("Looking up IR code: "+irCode);
+
+    // Retrieve the stored multi-line string from NVS
+    String storedData = preferences.getString("data", "");
+
+    for (int i = 0; i <= line_count; i++) {
+        if (lines[i].startsWith(irCode)) {
+            String command = lines[i].substring(irCode.length()+1);
+            command.trim(); // Strip any amount of whitespace at the end
+            print("Found IR command: ");
+            println(command);
+
+            return(command);
+        }
+    }
+    return("");
+}
+
+void loopTelnet() {
+  if (telnetServer.hasClient() && (!serverClient || !serverClient.connected())) {
+    if (serverClient)
+      serverClient.stop();
+    serverClient = telnetServer.available();
+    serverClient.flush();  // clear input buffer, else you get strange characters
+  }
+}
+
+void off() {
+
+    // According to the Fluke 17B+, this draws 14 mA at 5V (on the ESP32-PICO-KIT V4)
+    // Power (W) = Current (A) * Voltage (V) = 0.014 A * 5 V = 0.07 W
+    // Energy (kWh) = Power (W) * Time (hours) / 1000 = 0.07 W * 8760 hours/year / 1000 = 0.62 kWh/year
+    // Cost = Energy (kWh) * Cost per kWh = 0.62 kWh * $0.50/kWh = $0.31/year
+    // Assuming 80% efficiency of the power supply, the cost is $0.39/year
+    //
+    // So while this is not the most efficient way to "sleep" the ESP32, it is not terribly bad either.
+    // If we can find a way to use deep sleep, the module would draw 5 mA instead of 14 mA
+    // (~ one third of the power consumption)
+    
+    // Go to standby; TODO: Use deep sleep instead; how?
+    println("Going to standby mode");
+
+    // Stop the audio
+    audio.stopSong();
+    audio.~Audio();
+
+    // Stop advertising the web server
+    MDNS.end();
+    Serial.println("MDNS disabled");
+
+    // Switch off the WLAN
+    esp_wifi_stop();
+    WiFi.mode(WIFI_OFF);
+    Serial.println("WLAN disabled");
+
+    // NOTE: If IR is not needed, or if some clumsyness for waking it up via IR is acceptable,
+    // then we should use deep sleep instead; see the code as it was before the commit
+    // that added this text; especially at the beginning of setup()
+
+    // Clock down the CPU to the minimal frequency allowed on the ESP32
+    Serial.println("Setting CPU frequency to 10 MHz");
+    delay(100);
+
+    setCpuFrequencyMhz(10);
+
+    delay(100);
+
+    // Wait for an IR signal
+    while (true) {
+        if (irrecv.decode(&results)) {
+
+            // Lookup the IR code
+            char buffer[16];
+            sprintf(buffer, "0x%08X", results.value);
+            // Convert buffer to String
+            String hexstring = String(buffer);
+            String command = lookupIrCode(hexstring);
+            if (command == "OFF") {
+                break;
+            }
+            irrecv.resume(); // Receive the next value
+        }
+        delay(100);
+    }
+
+    // Reboot
+    ESP.restart();
+}
+
 void handleIrCommand(String command) {
 
     updateSleepTime();
@@ -478,31 +532,10 @@ void handleIrCommand(String command) {
 }
 
 void handleIrCode(String irCode) {
-    println("Looking up IR code: "+irCode);
-
-    // Retrieve the stored multi-line string from NVS
-    String storedData = preferences.getString("data", "");
-
-    for (int i = 0; i <= line_count; i++) {
-        if (lines[i].startsWith(irCode)) {
-            String command = lines[i].substring(irCode.length()+1);
-            command.trim(); // Strip any amount of whitespace at the end
-            print("Found IR command: ");
-            println(command);
-
-            handleIrCommand(command);
-        }
+    String command = lookupIrCode(irCode);
+    if (command.length() > 0) {
+        handleIrCommand(command);
     }
-    
-}
-
-void loopTelnet() {
-  if (telnetServer.hasClient() && (!serverClient || !serverClient.connected())) {
-    if (serverClient)
-      serverClient.stop();
-    serverClient = telnetServer.available();
-    serverClient.flush();  // clear input buffer, else you get strange characters
-  }
 }
 
 //**************************************************************************************************
@@ -510,39 +543,6 @@ void loopTelnet() {
 //**************************************************************************************************
 void setup() {
 
-    irrecv.enableIRIn();  // Start the receiver
-
-    if (esp_sleep_get_wakeup_cause() == ESP_SLEEP_WAKEUP_EXT0) {
-
-        // We got woken up by the IR pin, so check if there is an IR code available
-        // and go back to sleep if there is none
-        int wakeup_reason_was_ir = 0;
-
-        // TODO: Find a way to very quickly decode the IR code when waking up from deep sleep (e.g., using the ULC processor?)
-
-        // In the meantime, we just wait for 100ms and check if we receive an IR code after that time.
-        // This way, we can hopefully avoid waking up for random noise on the IR pin.
-
-        // Delay for 100ms in the hope that random noise will not trigger a false wakeup this way
-        delay(100);
-        
-        // After having waited for 100ms, try to receive a code for the following for 500ms
-        unsigned long start = millis();
-        while (millis() - start < 500) {
-            // Check if IR code is available
-            if (irrecv.decode(&results)) {
-                // IR code is available, so assume we really want to wake up
-                wakeup_reason_was_ir = 1;
-            }
-            //irrecv.resume(); // Receive the next value
-        }
-
-        if (wakeup_reason_was_ir == 0) {
-            // No IR code was received, so go back to sleep
-            off();
-        }
-    }
- 
     Serial.begin(115200);
  
     preferences.begin("WebRadio", false);  // instance of preferences for defaults (station, volume ...)
@@ -605,6 +605,7 @@ void setup() {
 
     print("IR pin ");
     println(String(kRecvPin));
+    irrecv.enableIRIn();  // Start the receiver
 
     audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
     audio.setVolume(cur_volume); // 0...21
