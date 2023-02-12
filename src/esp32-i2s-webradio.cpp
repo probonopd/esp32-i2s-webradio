@@ -16,6 +16,8 @@
 #include "esp32/rom/rtc.h"
 #include <esp_sleep.h>
 
+#include <esp_attr.h>
+
 #include <WebServer.h>
 #include <HTTPUpdateServer.h>
 
@@ -103,6 +105,7 @@ void handleRoot() {
   html += "<button onclick='send(\"/volume_down\")'>Volume down</button>&nbsp;&nbsp;&nbsp;\n";
   html += "<button onclick='send(\"/station_up\")'>Station up</button> ";
   html += "<button onclick='send(\"/station_down\")'>Station down</button>&nbsp;&nbsp;&nbsp;\n";
+  html += "<button onclick='send(\"/stop\")'>Stop</button>&nbsp;&nbsp;&nbsp;\n";
   html += "<button onclick='send(\"/off\")'>Off</button>\n";
   html += "<button onclick='send(\"/reboot\")'>Reboot</button>\n";
   html += "<p>\n";
@@ -112,7 +115,7 @@ void handleRoot() {
         html += "</button>\n";
     }
   html += "</p>";
-  html += "<p><a href='/config'>Configuration</a> | <a href='/update'>Update</a></p>";
+  html += "<p><a href='/config'>Configuration</a> | <a href='/update'>Update (stop first!)</a></p>";
 #if defined(GIT_IDENT)
     html += "<p>" + String(GIT_IDENT) + "</p>";
 #endif
@@ -329,6 +332,12 @@ void station_up(){
         cur_station++;
     }
         play_station();
+}
+
+void stop(){
+    audio.stopSong();
+    playing_a_station = false;
+    server.send(200, "text/html", "Stopped");
 }
 
 void play_url(){
@@ -593,6 +602,7 @@ void setup() {
     server.on("/station_down", station_down);
     server.on("/play_station_id", play_station_id);
     server.on("/play", play_url);
+    server.on("/stop", stop);
     server.on("/config", handleConfig);
     server.on("/update_config", updateConfig);
 
@@ -609,6 +619,18 @@ void setup() {
 
     audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
     audio.setVolume(cur_volume); // 0...21
+
+    int freeInternal = heap_caps_get_free_size(MALLOC_CAP_INTERNAL);
+    int freeExternal = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
+
+    if (freeExternal > 0) {
+        println("PSRAM detected");
+    } else {
+        println("PSRAM not detected");
+        // Increase the buffer size of the built-in RAM buffer; this seem to help against stuttering
+        println("Increasing buffer size");
+        audio.setBufsize(15000, 0);
+    }
 
     if (cur_station >= max_stations) {
         cur_station = 0;
