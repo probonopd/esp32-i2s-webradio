@@ -21,6 +21,9 @@
 #include <WebServer.h>
 #include <HTTPUpdateServer.h>
 
+#include <HTTPClient.h>
+#include <ArduinoJson.h>
+
 WiFiServer telnetServer(23);
 WiFiClient serverClient;
 
@@ -73,7 +76,7 @@ int line_count = 0;
 
 String last_ir_command;
 
-String device_name = "WebRadio";
+String device_name = F("WebRadio");
 
 bool playing_a_station = false; // True if we are playing a station, false if we are playing a URL, needed for caching station URLs
 
@@ -96,8 +99,87 @@ inline void print(const String line) {
     Serial.print(line);
 }
 
+String getFirstEpisode(String id) {
+
+  println("Getting episodes for: " + id);
+  String url = "https://pod.link/%id%.json?offset=0&limit=1";
+  url.replace("%id%", id);
+
+  HTTPClient http;
+  http.begin(url);
+  println(url);
+  int httpCode = http.GET();
+
+  if (httpCode != HTTP_CODE_OK) {
+    println(F("Error making HTTP request"));
+    // return "";
+  }
+
+    // https://arduinojson.org/v6/assistant/
+
+    StaticJsonDocument<64> filter;
+    filter["episodes"][0]["enclosure"]["url"] = true;
+
+    StaticJsonDocument<512> doc;
+
+    DeserializationError error = deserializeJson(doc, http.getStream(), DeserializationOption::Filter(filter));
+
+    if (error) {
+        Serial.print("deserializeJson() failed: ");
+        Serial.println(error.c_str());
+        return "";
+    }
+
+    const char* episodes_0_enclosure_url = doc["episodes"][0]["enclosure"]["url"];
+    println(String("Episode URL: ") + episodes_0_enclosure_url);
+
+    return String(episodes_0_enclosure_url);
+  
+}
+
+String getOnePodcast(String query) {
+
+  println("Searching for podcast: " + query);
+  String url = "https://pod.link/search?query=";
+  url += query;
+
+  HTTPClient http;
+  http.begin(url);
+  println(url);
+  int httpCode = http.GET();
+
+  if (httpCode != HTTP_CODE_OK) {
+    println(F("Error making HTTP request"));
+    // return "";
+  }
+
+    // https://arduinojson.org/v6/assistant/
+
+    StaticJsonDocument<32> filter;
+    filter[0]["id"] = true;
+
+    StaticJsonDocument<2048> doc;
+
+    DeserializationError error = deserializeJson(doc, http.getStream(), DeserializationOption::Filter(filter));
+
+    if (error) {
+        Serial.print("deserializeJson() failed: ");
+        Serial.println(error.c_str());
+        return "";
+    }
+
+    for (JsonObject item : doc.as<JsonArray>()) {
+        long id = item["id"]; 
+        println(String("Podcast ID: ") + id);
+        return String(id);
+    }
+
+    return "";
+  
+}
+
 void handleRoot() {
-  println("/ requested");
+  println(F("/ requested"));
   // Simple html page with buttons to control the radio
   String html = "<!DOCTYPE html><html><head><title>" + device_name + "</title></head><body><center><h1>" + device_name + "</h1>\n";
   html += "<script>\n";
@@ -350,6 +432,15 @@ void stop(){
 void play_url(){
     if (server.method() == HTTP_POST) {
         String url = server.arg("url");
+
+        // If URL does not start with http, then search for a podcast
+        if (!url.startsWith("http")) {
+            String onePodcastID = getOnePodcast(url);
+            println(onePodcastID);
+            url = getFirstEpisode(onePodcastID);
+            println(url);
+        }
+
         preferences.putString("url", url);
         playing_a_station = false;
         audio.connecttohost(url.c_str());
@@ -645,8 +736,10 @@ void setup() {
     
     write_volume(cur_volume);
 
-    // Check if url is empty, in which case we are playing the last played station
     String url = preferences.getString("url", "");
+
+    // Check if url is empty, in which case we are playing the last played station
+    
     if (url.length() == 0) {
         url = stations[cur_station];
         play_station();
