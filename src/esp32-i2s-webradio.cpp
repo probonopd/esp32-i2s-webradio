@@ -289,7 +289,8 @@ void volume_down(){
 }
 
 void play_station(){
-    preferences.putShort("station", cur_station); // store the current station in nvs
+    preferences.putShort("station", cur_station); // Store the current station in nvs
+    preferences.putString("url", "");
     println("Playing station id: "+String(cur_station));
     // Get the first 2 characters of the station name
     String station_name_language = titles[cur_station].substring(0, 2);
@@ -637,9 +638,21 @@ void setup() {
     }
     
     write_volume(cur_volume);
-    play_station();
-    println("Playing last played station: "+stations[cur_station]);
+
+    // Check if url is empty, in which case we are playing the last played station
+    String url = preferences.getString("url", "");
+    if (url.length() == 0) {
+        url = stations[cur_station];
+        play_station();
+        println("Playing last played station: "+stations[cur_station]);
+    } else {
+        println("Playing last played url: "+url);
+        playing_a_station = false;
+        audio.connecttohost(url.c_str());
+    }
+
 }
+
 //**************************************************************************************************
 //                                            L O O P                                              *
 //**************************************************************************************************
