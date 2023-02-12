@@ -33,9 +33,15 @@ WebServer server(80);
 HTTPUpdateServer httpUpdater;
 
 // I2S pins for DAC
+#if PLATFORMIO_BOARD == esp32cam
+#define I2S_DOUT      2
+#define I2S_BCLK      14
+#define I2S_LRC       15
+#else
 #define I2S_DOUT      25
 #define I2S_BCLK      27
 #define I2S_LRC       26
+#endif
 
 // IR pin
 #ifdef ESP32C3
@@ -115,7 +121,7 @@ void handleRoot() {
         html += "</button>\n";
     }
   html += "</p>";
-  html += "<p><a href='/config'>Configuration</a> | <a href='/update'>Update (stop first!)</a></p>";
+  html += "<p><a href='/config'>Configuration</a> | <a href='/update'>Update (reboot first!)</a></p>";
 #if defined(GIT_IDENT)
     html += "<p>" + String(GIT_IDENT) + "</p>";
 #endif
