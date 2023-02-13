@@ -141,7 +141,22 @@ String getOnePodcast(String query) {
 
   println("Searching for podcast: " + query);
   String url = "https://pod.link/search?query=";
-  url += query;
+  // Make a new string with the query URL encoded
+    String quoted_query = "";
+    for (int i = 0; i < query.length(); i++) {
+        if (query[i] == ' ') {
+            quoted_query += '+';
+        } else if (isalnum(query[i])) {
+            quoted_query += query[i];
+        } else {
+            quoted_query += '%';
+            if (query[i] < 16) {
+                quoted_query += '0';
+            }
+            quoted_query += String(query[i], HEX);
+        }
+    }
+  url += quoted_query;
 
   HTTPClient http;
   http.begin(url);
@@ -394,7 +409,16 @@ void play_station(){
     }
     println("Speech finished");
     playing_a_station = true;
-    audio.connecttohost(stations[cur_station].c_str());
+
+    String url = stations[cur_station];
+    // If URL does not start with http, then search for a podcast
+    if (!url.startsWith("http")) {
+        String onePodcastID = getOnePodcast(url);
+        println(onePodcastID);
+        url = getFirstEpisode(onePodcastID);
+        println(url);
+    }
+    audio.connecttohost(url.c_str());
     print("Requested to play: ");
     println(stations[cur_station].c_str());
     server.send(200, "text/html", "Station: "+String(cur_station)+"");
