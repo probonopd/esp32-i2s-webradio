@@ -193,6 +193,8 @@ void handleRoot() {
   html += "<button onclick='send(\"/volume_down\")'>Volume down</button>&nbsp;&nbsp;&nbsp;\n";
   html += "<button onclick='send(\"/station_up\")'>Station up</button> ";
   html += "<button onclick='send(\"/station_down\")'>Station down</button>&nbsp;&nbsp;&nbsp;\n";
+  html += "<button onclick='send(\"/play\")'>Play</button> ";
+  html += "<button onclick='send(\"/pause\")'>Pause</button> ";
   html += "<button onclick='send(\"/stop\")'>Stop</button>&nbsp;&nbsp;&nbsp;\n";
   html += "<button onclick='send(\"/off\")'>Off</button>\n";
   html += "<button onclick='send(\"/reboot\")'>Reboot</button>\n";
@@ -429,6 +431,18 @@ void stop(){
     server.send(200, "text/html", "Stopped");
 }
 
+void pauseResume(){
+    audio.pauseResume();
+    server.send(200, "text/html", "Paused");
+}
+
+void play(){
+    if (! audio.isRunning()) {
+        audio.pauseResume();
+    }
+    server.send(200, "text/html", "Playing");
+}
+
 void play_url(){
     if (server.method() == HTTP_POST) {
         String url = server.arg("url");
@@ -625,12 +639,10 @@ void handleIrCommand(String command) {
                 last_ir_command = command;
             }
             if (command.compareTo("PLAY") == 0) {
-                if (audio.isRunning() == false) {
-                    audio.pauseResume();
-                }
+                play();
             }
             if (command.compareTo("PAUSE") == 0) {
-                audio.pauseResume();
+                pauseResume();
             }
             if (command.compareTo("STOP") == 0) {
                 audio.stopSong();
@@ -698,7 +710,8 @@ void setup() {
     server.on("/station_up", station_up);
     server.on("/station_down", station_down);
     server.on("/play_station_id", play_station_id);
-    server.on("/play", play_url);
+    server.on("/play", play);
+    server.on("/pause", pauseResume);
     server.on("/stop", stop);
     server.on("/config", handleConfig);
     server.on("/update_config", updateConfig);
