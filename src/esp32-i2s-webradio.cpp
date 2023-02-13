@@ -199,7 +199,7 @@ void handleRoot() {
   String html = "<!DOCTYPE html><html><head><title>" + device_name + "</title></head><body><center><h1>" + device_name + "</h1>\n";
   html += "<script>\n";
   html += "function send(url) { var xhttp = new XMLHttpRequest(); xhttp.open('GET', url, true); xhttp.send(); }\n";
-  html += "function play(url) { var xhttp = new XMLHttpRequest(); xhttp.open('POST', '/play', true); xhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded'); xhttp.send('url=' + encodeURIComponent(url)); }\n";
+  html += "function play(url) { var xhttp = new XMLHttpRequest(); xhttp.open('POST', '/play_url', true); xhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded'); xhttp.send('url=' + encodeURIComponent(url)); }\n";
   html += "function play_station_id(station_id) { var xhttp = new XMLHttpRequest(); xhttp.open('POST', '/play_station_id', true); xhttp.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded'); xhttp.send('station_id=' + encodeURIComponent(station_id)); }\n";
   html += "</script>\n";
   html += "<p><input type='text' id='urlInput' size='50'>\n";
@@ -393,6 +393,24 @@ void volume_down(){
         server.send(200, "text/html", "Volume: "+String(cur_volume)+"");
 }
 
+void stop(){
+    audio.stopSong();
+    playing_a_station = false;
+    server.send(200, "text/html", "Stopped");
+}
+
+void pauseResume(){
+    audio.pauseResume();
+    server.send(200, "text/html", "Paused");
+}
+
+void play(){
+    if (! audio.isRunning()) {
+        audio.pauseResume();
+    }
+    server.send(200, "text/html", "Playing");
+}
+
 void play_station(){
     preferences.putShort("station", cur_station); // Store the current station in nvs
     preferences.putString("url", "");
@@ -417,6 +435,12 @@ void play_station(){
         println(onePodcastID);
         url = getFirstEpisode(onePodcastID);
         println(url);
+    }
+    if(url == ""){
+        println("No URL found");
+        stop();
+        server.send(404, "text/html", "No URL found");
+        return;
     }
     audio.connecttohost(url.c_str());
     print("Requested to play: ");
@@ -449,26 +473,9 @@ void station_up(){
         play_station();
 }
 
-void stop(){
-    audio.stopSong();
-    playing_a_station = false;
-    server.send(200, "text/html", "Stopped");
-}
-
-void pauseResume(){
-    audio.pauseResume();
-    server.send(200, "text/html", "Paused");
-}
-
-void play(){
-    if (! audio.isRunning()) {
-        audio.pauseResume();
-    }
-    server.send(200, "text/html", "Playing");
-}
-
 void play_url(){
     if (server.method() == HTTP_POST) {
+        println(F("/play_url requested"));
         String url = server.arg("url");
 
         // If URL does not start with http, then search for a podcast
@@ -734,6 +741,7 @@ void setup() {
     server.on("/station_up", station_up);
     server.on("/station_down", station_down);
     server.on("/play_station_id", play_station_id);
+    server.on("/play_url", play_url);
     server.on("/play", play);
     server.on("/pause", pauseResume);
     server.on("/stop", stop);
