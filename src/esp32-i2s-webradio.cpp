@@ -665,21 +665,20 @@ void setup() {
     wifiManager.autoConnect();
     
     parseConfigurationData();
-    println("Number of stations: "+String(max_stations));
-    println("Current station: "+String(cur_station));
-    println("Current volume: "+String(cur_volume));
-
+    print(F("Number of stations: ")); println(String(max_stations));
+    print(F("Current station: ")); println(String(cur_station));
+    print(F("Current volume: ")); println(String(cur_volume));
     
     while (WiFi.status() != WL_CONNECTED) {delay(1500); print(".");}
     log_i("Connected to %s", WiFi.SSID().c_str());
 
     if (!MDNS.begin(device_name.c_str())) {
-        println("Error setting up MDNS responder!");
+        println(F("Error setting up MDNS responder!"));
         while(1) {
             delay(1000);
         }
     }
-    println("mDNS responder started");
+    println(F("mDNS responder started"));
 
     // Add services to MDNS-SD
     MDNS.addService("http", "tcp", 80);
@@ -708,11 +707,9 @@ void setup() {
     println("HTTPUpdateServer ready! Open /update in your browser");
 
     server.begin();
-    printf("HTTP server started, listening on IP %s", WiFi.localIP().toString().c_str());
-    println("");
+    print(F("HTTP server started, listening on IP ")), println(WiFi.localIP().toString());
 
-    print("IR pin ");
-    println(String(kRecvPin));
+    print(F("IR pin ")); println(String(kRecvPin));
     irrecv.enableIRIn();  // Start the receiver
 
     audio.setPinout(I2S_BCLK, I2S_LRC, I2S_DOUT);
@@ -722,11 +719,11 @@ void setup() {
     int freeExternal = heap_caps_get_free_size(MALLOC_CAP_SPIRAM);
 
     if (freeExternal > 0) {
-        println("PSRAM detected");
+        println(F("PSRAM detected"));
     } else {
-        println("PSRAM not detected");
+        println(F("PSRAM not detected"));
         // Increase the buffer size of the built-in RAM buffer; this seem to help against stuttering
-        println("Increasing buffer size");
+        println(F("Increasing buffer size"));
         audio.setBufsize(15000, 0);
     }
 
@@ -743,9 +740,9 @@ void setup() {
     if (url.length() == 0) {
         url = stations[cur_station];
         play_station();
-        println("Playing last played station: "+stations[cur_station]);
+        println(F("Playing last played station: ")); print (stations[cur_station]);
     } else {
-        println("Playing last played url: "+url);
+        print(F("Playing last played url: ")); println(url);
         playing_a_station = false;
         audio.connecttohost(url.c_str());
     }
@@ -769,7 +766,7 @@ void loop()
         sprintf(buffer, "0x%08X", results.value);
         // Convert buffer to String
         String hexstring = String(buffer);
-        println("IR Code: "+hexstring);
+        print(F("IR Code: ")); println(hexstring);
         irrecv.resume(); // Receive the next value
         handleIrCode(hexstring);
     }
@@ -786,7 +783,7 @@ void loop()
 //                                           E V E N T S                                           *
 //**************************************************************************************************
 void audio_info(const char *info){
-    print("audio_info: "); println(info);
+    print(F("audio_info: ")); println(info);
 }
 void audio_showstation(const char *info){
     write_stationName(String(info));
@@ -798,121 +795,121 @@ void audio_showstreamtitle(const char *info){
 }
 
 void audio_id3data(const char *info){  //id3 metadata
-    print("id3data     ");println(info);
+    print(F("id3data     ")); println(info);
 }
 void audio_eof_stream(const char* info){ // The webstream comes to an end
-    print("end of stream:      ");println(info);
+    print(F("end of stream:      ")); println(info);
 }
 void audio_bitrate(const char *info){
-    print("bitrate     ");println(info);
+    print(F("bitrate     ")); println(info);
 }
 void audio_lasthost(const char *info){  //stream URL played
-    print("lasthost    ");println(info);
+    print(F("lasthost    ")); println(info);
     if(playing_a_station == true) {
         // Cache the fully resolved URL so that we can play it again faster
-        println("Caching station URL for station id: " + String(cur_station));
-        println("Before caching station URL: " +  stations[cur_station]);
+        print(F("Caching station URL for station id: ")); println(String(cur_station));
+        print(F("Before caching station URL: ")); println(stations[cur_station]);
         stations[cur_station] = String(info);
         // TODO: Cache this to a location that survives a reboot once we have a way to refresh it periodically
-        println("After caching station URL: " +  stations[cur_station]);
+        print(F("After caching station URL: ")); println(stations[cur_station]);
     }
 }
 void audio_codec(const char *info){
-    print("codec       ");println(info);
+    print(F("codec       ")); println(info);
 }
 void audio_commercial(const char *info){  //duration in sec
-    print("commercial  ");println(info);
+    print(F("commercial  ")); println(info);
 }
 void audio_icyurl(const char *info){  //homepage
-    print("icyurl      ");println(info);
+    print(F("icyurl      ")); println(info);
 }
 void audio_lastmodified(const char *info){  //UTC time of last modification of stream
-    print("lastmodif   ");println(info);
+    print(F("lastmodif   ")); println(info);
 }
 void audio_newstation(const char *info){
-    print("newstation  ");println(info);
+    print(F("newstation  ")); println(info);
 }
 void audio_eof_speech(const char *info){
-    print("eof_speech  ");println(info);
+    print(F("eof_speech  ")); println(info);
 }
 void audio_file_mp3(const char *info){
-    print("file_mp3    ");println(info);
+    print(F("file_mp3    ")); println(info);
 }
 void audio_file_aac(const char *info){
-    print("file_aac    ");println(info);
+    print(F("file_aac    ")); println(info);
 }
 void audio_file_aac_adts(const char *info){
-    print("file_aac_adts");println(info);
+    print(F("file_aac_adts")); println(info);
 }
 void audio_file_opus(const char *info){
-    print("file_opus   ");println(info);
+    print(F("file_opus   ")); println(info);
 }
 void audio_file_vorbis(const char *info){
-    print("file_vorbis ");println(info);
+    print(F("file_vorbis ")); println(info);
 }
 void audio_file_flac(const char *info){
-    print("file_flac   ");println(info);
+    print(F("file_flac   ")); println(info);
 }
 void audio_file_wav(const char *info){
-    print("file_wav    ");println(info);
+    print(F("file_wav    ")); println(info);
 }
 void audio_file_wma(const char *info){
-    print("file_wma    ");println(info);
+    print(F("file_wma    ")); println(info);
 }
 void audio_file_raw(const char *info){
-    print("file_raw    ");println(info);
+    print(F("file_raw    ")); println(info);
 }
 void audio_file_unknown(const char *info){
-    print("file_unknown");println(info);
+    print(F("file_unknown")); println(info);
 }
 void audio_streamtype(const char *info){
-    print("streamtype  ");println(info);
+    print(F("streamtype  ")); println(info);
 }
 void audio_streamurl(const char *info){
-    print("streamurl   ");println(info);
+    print(F("streamurl   ")); println(info);
 }
 void audio_stationcount(const char *info){
-    print("stationcount");println(info);
+    print(F("stationcount")); println(info);
 }
 void audio_stationname(const char *info){
-    print("stationname ");println(info);
+    print(F("stationname ")); println(info);
 }
 void audio_stationlist(const char *info){
-    print("stationlist ");println(info);
+    print(F("stationlist ")); println(info);
 }
 void audio_stationlistend(const char *info){
-    print("stationlistend");println(info);
+    print(F("stationlistend")); println(info);
 }
 void audio_filesize(const char *info){
-    print("filesize    ");println(info);
+    print(F("filesize    ")); println(info);
 }
 void audio_filecount(const char *info){
-    print("filecount   ");println(info);
+    print(F("filecount   ")); println(info);
 }
 void audio_filelist(const char *info){
-    print("filelist    ");println(info);
+    print(F("filelist    ")); println(info);
 }
 void audio_filelistend(const char *info){
-    print("filelistend ");println(info);
+    print(F("filelistend ")); println(info);
 }
 void audio_playlisttitle(const char *info){
-    print("playlisttitle");println(info);
+    print(F("playlisttitle")); println(info);
 }
 void audio_playlisturl(const char *info){
-    print("playlisturl ");println(info);
+    print(F("playlisturl ")); println(info);
 }
 void audio_playlistshuffled(const char *info){
-    print("playlistshuffled");println(info);
+    print(F("playlistshuffled")); println(info);
 }
 void audio_playlistrepeat(const char *info){
-    print("playlistrepeat");println(info);
+    print(F("playlistrepeat")); println(info);
 }
 void audio_playlistcount(const char *info){
-    print("playlistcount");println(info);
+    print(F("playlistcount")); println(info);
 }
 void audio_playlist(const char *info){
-    print("playlist    ");println(info);
+    print(F("playlist    ")); println(info);
 }
 void audio_playlistend(const char *info){
-    print("playlistend ");println(info);
+    print(F("playlistend ")); println(info);
 }
