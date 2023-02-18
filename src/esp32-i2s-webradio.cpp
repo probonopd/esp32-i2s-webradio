@@ -19,6 +19,8 @@
 #include "esp32s2/rom/rtc.h"
 #elif CONFIG_IDF_TARGET_ESP32S3
 #include "esp32s3/rom/rtc.h"
+#elif CONFIG_IDF_TARGET_ESP32C3
+#include "esp32c3/rom/rtc.h"
 #endif
 
 #include <esp_sleep.h>
@@ -54,7 +56,7 @@ HTTPUpdateServer httpUpdater;
 #endif
 
 // IR pin
-#ifdef ESP32C3
+#ifdef CONFIG_IDF_TARGET_ESP32C3
 const uint16_t kRecvPin = 10; // 14 on a ESP32-C3 causes a boot loop
 #else
 const uint16_t kRecvPin = 14;
