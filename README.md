@@ -44,7 +44,7 @@ sudo -E python3 -m esptool --chip esp32 --baud 921600 --before default_reset --a
 
 ## Configuring
 
-Configuration is done via the web using a simple text format:
+Configuration is done via the web using a simple text format. It can be entered into the device, or can be loaded from a URL that is entered instead:
 
 ```
 # Will be advertised to the network under this name
