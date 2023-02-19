@@ -258,6 +258,21 @@ void parseConfigurationData() {
     println("storedData:");
     println(storedData);
 
+    // Check if storedData begins with "http" and if so, assume it's a single URL
+    if (storedData.startsWith("http")) {
+        // Load the contents of that URL into storedData
+        println("Loading URL: " + storedData);
+        HTTPClient http;
+        http.begin(storedData);
+        int httpCode = http.GET();
+        if (httpCode != HTTP_CODE_OK) {
+            println(F("Error making HTTP request"));
+            return;
+        }
+        storedData = http.getString();
+        println("Loaded URL: " + storedData);
+    }
+
     for (int i = 0; i < storedData.length(); i++) {
         if (storedData[i] == '\n') {
             line_count++;
@@ -793,8 +808,14 @@ void setup() {
     
     if (url.length() == 0) {
         url = stations[cur_station];
-        play_station();
-        println(F("Playing last played station: ")); print (stations[cur_station]);
+        // If max_stations is 0, do nothing, otherwise play the station
+        if (max_stations > 0) {
+            playing_a_station = true;
+            play_station();
+            println(F("Playing last played station: ")); print (stations[cur_station]);
+        } else {
+            println(F("No stations configured"));
+        }
     } else {
         print(F("Playing last played url: ")); println(url);
         playing_a_station = false;
