@@ -32,11 +32,15 @@ jobs:
            platformio project init
            pio run
            # pio run -v -t upload || true # Show all firmware parts and commands
-           mkdir -p firmware/esp32 firmware/esp32s2 # firmware/esp32s3 firmware/esp32c3
+           mkdir -p firmware/esp32 firmware/esp32cam firmware/esp32s2 # firmware/esp32s3 firmware/esp32c3
            cp .pio/build/esp32/firmware.bin firmware/esp32
            cp ${{ github.workspace }}/.pio/build/esp32/bootloader.bin firmware/esp32
            cp ${{ github.workspace }}/.pio/build/esp32/partitions.bin firmware/esp32
            cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin firmware/esp32
+           cp .pio/build/esp32cam/firmware.bin firmware/esp32cam
+           cp ${{ github.workspace }}/.pio/build/esp32cam/bootloader.bin firmware/esp32cam
+           cp ${{ github.workspace }}/.pio/build/esp32cam/partitions.bin firmware/esp32cam
+           cp ~/.platformio/packages/framework-arduinoespressif32/tools/partitions/boot_app0.bin firmware/esp32cam
            cp .pio/build/esp32s2/firmware.bin firmware/esp32s2
            cp ${{ github.workspace }}/.pio/build/esp32s2/bootloader.bin firmware/esp32s2
            cp ${{ github.workspace }}/.pio/build/esp32s2/partitions.bin firmware/esp32s2
