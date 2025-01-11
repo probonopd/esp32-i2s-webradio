@@ -28,6 +28,8 @@ From GitHub Actions under "Summary", "Artifacts"
 
 ## Flashing
 
+Just download the `.bin` and flash it using https://tasmota.github.io/install/.
+
 E.g., on FreeBSD:
 
 ```
