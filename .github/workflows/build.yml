@@ -13,7 +13,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions: write-all
     env:
-      VARIANTS: '["esp32s2", "esp32c3", "esp32", "esp32cam", "esp32s3"]'
+      VARIANTS: '["esp32", "esp32cam", "esp32s3"]'
     steps:
       - name: Checkout code
         uses: actions/checkout@v2
