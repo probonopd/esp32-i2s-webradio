@@ -1,4 +1,4 @@
-# esp32-i2s-webradio [![Build Status](https://github.com/probonopd/esp32-i2s-webradio/actions/workflows/compile.yml/badge.svg)](https://github.com/probonopd/esp32-i2s-webradio/actions/workflows/build.yml)
+# esp32-i2s-webradio [![Build Status](../../actions/workflows/build.yml/badge.svg)](../../actions/workflows/build.yml)
 
 A webradio player using based on esp32 and i2s DAC
 
