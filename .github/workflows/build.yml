@@ -1,0 +1,75 @@
+name: Build
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    env:
+      VARIANTS: '["tasmota", "tasmota-4M", "tasmota32s2cdc", "tasmota32s3-qio_opi-all", "tasmota32s3-qio_opi_120"]'
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+        
+      - name: Cache PlatformIO and toolchains
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.platformio
+            ~/.cache/pip
+          key: ${{ runner.os }}-pio-${{ hashFiles('**/platformio.ini') }}
+          restore-keys: |
+            ${{ runner.os }}-pio-
+
+      - name: Install PlatformIO and jq
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y python3-pip jq
+          pip3 install platformio
+
+      - name: Build variants
+        run: |
+          export GIT_IDENT=$(git rev-parse --short HEAD)
+          platformio project init
+          mkdir -p ./out/
+          for variant in $(echo $VARIANTS | jq -r '.[]'); do
+            platformio run -e "$variant"
+            mv .pio/build/*/firmware.bin "./out/${variant}.bin"
+            gzip -c "./out/${variant}.bin" > "./out/${variant}.bin.gz"
+          done
+
+      - name: Check for existing release
+        id: check_release
+        run: |
+          release=$(curl -s -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/tags/continuous")
+          echo "exists=$(echo $release | jq -r '.id // null')" >> $GITHUB_ENV
+
+      - name: Delete existing release
+        if: env.exists != 'null'
+        run: |
+          curl -X DELETE -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            "https://api.github.com/repos/${{ github.repository }}/releases/${{ env.exists }}"
+
+      - name: Create new release
+        id: create_release
+        run: |
+          response=$(curl -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+            -d '{"tag_name": "continuous", "name": "Continuous Release", "body": "Customized build"}' \
+            "https://api.github.com/repos/${{ github.repository }}/releases")
+          echo "release_id=$(echo $response | jq '.id')" >> $GITHUB_ENV
+
+      - name: Upload artifacts to release
+        run: |
+          for variant in $(echo $VARIANTS | jq -r '.[]'); do
+            for file_type in "bin" "bin.gz"; do
+              curl -X POST -H "Authorization: token ${{ secrets.GITHUB_TOKEN }}" \
+                -H "Content-Type: application/octet-stream" \
+                --data-binary @"out/${variant}.${file_type}" \
+                "https://uploads.github.com/repos/${{ github.repository }}/releases/${{ env.release_id }}/assets?name=${variant}.${file_type}"
+            done
+          done
