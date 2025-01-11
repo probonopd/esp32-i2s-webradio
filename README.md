@@ -16,6 +16,9 @@ A webradio player using based on esp32 and i2s DAC
 
 ## System Requirements
 
+- [x] ESP32Cam board
+- [ ] ESP32S3 board (still need to get it to work)
+
 Works with MAX98357A (3 Watt amplifier with DAC), connected three lines (DOUT, BLCK, LRC) to I2S. For stereo are two MAX98357A necessary. AudioI2S works with UDA1334A (Adafruit I2S Stereo Decoder Breakout Board), PCM5102A and CS4344. Other HW may work but not tested.
 
 For stereo using 2 MAX98357A modules, see [this video](https://www.youtube.com/watch?v=kdKnddqCJbY).
