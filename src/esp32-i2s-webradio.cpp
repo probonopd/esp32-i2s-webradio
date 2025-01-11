@@ -49,6 +49,10 @@ HTTPUpdateServer httpUpdater;
 #define I2S_DOUT      2
 #define I2S_BCLK      14
 #define I2S_LRC       15
+#elif PLATFORMIO_BOARD = esp32-s3-devkitc-1
+#define I2S_DOUT      15
+#define I2S_BCLK      16
+#define I2S_LRC       17
 #else
 #define I2S_DOUT      25
 #define I2S_BCLK      27
