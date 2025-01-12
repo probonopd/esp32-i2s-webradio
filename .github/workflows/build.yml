@@ -38,10 +38,6 @@ jobs:
         run: |
           export GIT_IDENT=$(git rev-parse --short HEAD)
           platformio project init
-          mkdir -p boards
-          cd boards
-          git clone https://github.com/shpegun60/ESP32-S3-N16R8
-          cd -
           mkdir -p ./out/
           for variant in $(echo $VARIANTS | jq -r '.[]'); do
             platformio run -e "$variant"
